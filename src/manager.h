@@ -40,8 +40,7 @@ class Manager {
       void load_data_to_matrix();
       string get_basename(string);
       bool state_snapshot(const string&);
-      bool load_snapshot(const string&, const string&, \
-        const string&, const int);
+      bool load_snapshot(const string&, const string&, const int);
       bool load_in_model(const string&, const int);
       bool load_in_model_id(const string&);
       bool load_in_data(const string&, const int); 

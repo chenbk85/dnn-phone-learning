@@ -26,7 +26,7 @@
 
 void print_usage() {
   cout << "Usage:" << endl;
-   cout << "  ./dnn-phone-learning -d [data-list] -c [config-file] -g [gibbs-iter] -r [results-dir] -b [batch_size] -s [snapshot] -f [cluster-file]" << endl;
+   cout << "  ./dnn-phone-learning -d [data-list] -c [config-file] -g [gibbs-iter] -r [results-dir] -b [batch_size] -s [snapshot]" << endl;
 }
 
 string replaceChar(string str, char ch1, char ch2) {
@@ -46,10 +46,9 @@ int main(int argc, char* argv[]) {
    int gibbs_iter = 100;
    int batch_size = 100;
    string snapshot = "";
-   string cluster_file;
 
    int c;
-   while ((c = getopt(argc, argv, "dcgrbsf:")) != -1){
+   while ((c = getopt(argc, argv, "dcgrbs:")) != -1){
      if(c == 'd'){
        data_list = optarg;
      }
@@ -67,9 +66,6 @@ int main(int argc, char* argv[]) {
      }
      else if(c == 's'){
        snapshot = optarg;
-     }
-     else if(c == 'f'){
-       cluster_file = optarg;
      }
      else{
        print_usage();
@@ -92,8 +88,7 @@ int main(int argc, char* argv[]) {
 
    if (snapshot != "") {
       cout << "Loading snapshot..." << endl;
-      if (!projectManager.load_snapshot(snapshot, \
-           cluster_file, data_list, batch_size)) {
+      if (!projectManager.load_snapshot(snapshot, data_list, batch_size)) {
          cout << "snapshot file seems bad. Check "
            << snapshot << "." << endl;
       }

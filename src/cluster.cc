@@ -51,7 +51,7 @@ Cluster::Cluster(int s_num, int v_dim) {
    for(int i = 0; i < state_num; ++i) {
      vector<float> prototype(vector_dim); 
       emissions.push_back(prototype);
-      caches.push_back(prototype);
+      cache.push_back(prototype);
    }
    age = 0;
 }
@@ -85,19 +85,19 @@ void Cluster::decrease_trans(const int i, const int j) {
 }
 
 void Cluster::increase_cache(const int s_t, const float* data) {
-  cache[s_t] += data;
+  //cache[s_t] += data;
 }
 
 void Cluster::decrease_cache(const int s_t,  const float* data) {
-  cache[s_t] -= data;
+  //cache[s_t] -= data;
 }
 
 void Cluster::update_emission(vector<float> weights, int index) {
    emissions[index] = weights;
 }
 
-const float* Cluster::get_cache_weights(const int s_t) {
-   return caches[s_t];
+const vector<float> Cluster::get_cache_weights(const int s_t) {
+   return cache[s_t];
 }
 
 void Cluster::update_trans(vector<vector<float> > new_trans) {
@@ -143,7 +143,7 @@ void Cluster::remove_members(Segment* data) {
 void Cluster::set_precompute_status(const bool new_status) {
    precompute_status = new_status;
    for (int i = 0; i < state_num; ++i) {
-      emissions[i].set_precompute_status(new_status);
+     //emissions[i].set_precompute_status(new_status);
    }
 }
 
@@ -228,7 +228,7 @@ double Cluster::compute_likelihood(const Segment& data, const int offset){
 
 void Cluster::precompute(int total, const float** data) {
    for(int i = 0; i < state_num; ++i) {
-      emissions[i].precompute(total, data);
+     //emissions[i].precompute(total, data);
    }
 }
 
@@ -237,24 +237,26 @@ double Cluster::compute_emission_likelihood(int state, \
                                             const float* data, \
                                             const int index) {
    if (precompute_status) {
-     double e = emissions[state].compute_likelihood(index); 
+     //double e = emissions[state].compute_likelihood(index); 
      //cout << "PC e: " << emissions[state].compute_likelihood(index) << endl;
-     return e;
+     return 0.0;
    }
    else {
-     double e = emissions[state].compute_likelihood(data); 
+     //double e = emissions[state].compute_likelihood(data); 
      //cout << "e: " << emissions[state].compute_likelihood(data) << endl;
-     return e;
+     return 0.0;
    }
 }
 
 vector<double> Cluster::compute_posterior_weight(int state, \
                                             const float* data, int index) {
+
+  vector<double> d;
    if (precompute_status) {
-      return emissions[state].compute_posterior_weight(index);
+     return d; //emissions[state].compute_posterior_weight(index);
    }
    else {
-      return emissions[state].compute_posterior_weight(data);
+     return d; //emissions[state].compute_posterior_weight(data);
    }
 }
 
@@ -294,8 +296,8 @@ void Cluster::state_snapshot(const string& fn) {
    fout.write(reinterpret_cast<char*> (copy_trans), sizeof(float) * state_num * (state_num + 1)); 
    // write weights info
    for (int i = 0; i < state_num; ++i) {
-     const float* weights = emissions[i];
-     fout.write(reinterpret_cast<const char*> (weights_i), sizeof(float) * vector_dim);
+     //vector<float> weights_i = emissions[i];
+     //fout.write(reinterpret_cast<const char*> (weights_i), sizeof(float) * vector_dim);
    }
    // write out each member
    /*

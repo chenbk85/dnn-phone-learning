@@ -565,13 +565,13 @@ void Manager::init_sampler() {
 bool Manager::update_boundaries(const int group_ptr) {
    cout << "Total bounds is " << Bound::index_counter << endl;
    cout << "Total segs is " << Segment::counter << endl;
-   //cout << "UB: number of clusters is " << Cluster::counter <<	\
+   //cout << "UB: number of clusters is " << Cluster::counter <<	
    //     ", to double check " << clusters.size() << endl;
    vector<Bound*>::iterator iter_bounds = bounds.begin();
    int i = group_ptr == 0 ? 0 : batch_groups[group_ptr - 1];
    Sampler::offset = bounds[i] -> get_start_frame_index();
    for (; i < batch_groups[group_ptr]; ++i) {
-   //for(iter_bounds = bounds.begin(); iter_bounds != bounds.end(); \
+   //for(iter_bounds = bounds.begin(); iter_bounds != bounds.end(); 
    //  ++iter_bounds) {
      cout << "UB: number of clusters is " << Cluster::counter <<	\
        ", to double check " << clusters.size() << endl;
@@ -589,7 +589,7 @@ bool Manager::update_boundaries(const int group_ptr) {
 
 void Manager::update_clusters(const bool to_precompute, const int group_ptr) {
    vector<Cluster*>::iterator iter_clusters = clusters.begin();
-   for (int k = 0; k < clusters.size(); ++k) {
+   for (unsigned int k = 0; k < clusters.size(); ++k) {
      cout << "Cluster " << k << endl;
       // clusters[k] -> show_member_len();
       if (clusters[k] -> get_age() >= 500000000000 && \
@@ -761,13 +761,11 @@ bool Manager::load_in_model(const string& fname, const int threshold) {
       fin.read(reinterpret_cast<char*> (trans), sizeof(float) * \
         state_num * (state_num + 1));
       new_cluster -> set_trans(trans);
+      float weights[vector_dim];
       for (int j = 0; j < state_num; ++j) {
-            fin.read(reinterpret_cast<char*> (weights), \
-              sizeof(float) * vector_dim);
-            fin.read(reinterpret_cast<char*> (var), \
-              sizeof(float) * vector_dim);
-            new_cluster -> set_weights(j, k, weights);
-         }
+	fin.read(reinterpret_cast<char*> (weights),	\
+		 sizeof(float) * vector_dim);
+	//new_cluster -> set_weights(j,weights);
       }
       if (new_cluster -> get_member_num() > threshold) {
          clusters.push_back(new_cluster);
@@ -777,7 +775,7 @@ bool Manager::load_in_model(const string& fname, const int threshold) {
          delete new_cluster;
       }
    }
-   for (int i = 0; i < clusters.size(); ++i) {
+   for (unsigned int i = 0; i < clusters.size(); ++i) {
       clusters[i] -> set_member_num(0);
    }
    Cluster::counter = clusters.size();
@@ -788,7 +786,7 @@ bool Manager::load_in_model(const string& fname, const int threshold) {
 
 
 Cluster* Manager::find_cluster(const int c_id) {
-   for (int i = 0; i < clusters.size(); ++i) {
+   for (unsigned int i = 0; i < clusters.size(); ++i) {
       if (clusters[i] -> get_cluster_id() == c_id) {
          return clusters[i];
       }
@@ -930,7 +928,7 @@ bool Manager::load_snapshot(const string& fn_snapshot, const string& fn_data, \
       cout << "Cannot load in data file." << endl;
       return false;
    }
-   for (int c = 0; c < clusters.size(); ++c) {
+   for (unsigned int c = 0; c < clusters.size(); ++c) {
       cout << "print out" << endl;
       cout << clusters[c] -> get_member_num() << endl;
       cout << clusters[c] -> get_cluster_id() << endl;

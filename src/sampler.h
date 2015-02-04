@@ -44,7 +44,7 @@ class Sampler {
       static int offset;
       // set up priors for the model
       void init_prior(const int, \
-        const int, const int, \
+        const int, \
         const float, const float, \
         const float, const float, \
         const float, const float, \

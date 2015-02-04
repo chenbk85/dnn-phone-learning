@@ -27,12 +27,12 @@ using namespace std;
 
 class Cluster {
    public:
-      Cluster(int, int, int);
+      Cluster(int, int);
       static int counter;
       static int aval_id;
       // Update model parameters:
       // transition prob
-      void init(const int, const int, const int);
+      void init(const int, const int);
       void update_trans(vector<vector<float> >);
   void update_emission(vector<float>, int);
       void append_member(Segment*);
@@ -57,15 +57,13 @@ class Cluster {
       void update_age() {++age;}
       void increase_trans(const int, const int);
       void decrease_trans(const int, const int);
-      void increase_cache(const int, const int, const float*);
-      void decrease_cache(const int, const int, const float*);
+      void increase_cache(const int, const float*);
+      void decrease_cache(const int, const float*);
       void set_trans(const float*);
       void set_member_num(const int s_member_num) {member_num = s_member_num;}
       int get_age() const {return age;}
       vector<vector<float> >& get_cache_trans() { return cache_trans;}
-      const float* get_cache_mean(const int, const int);
-      const float* get_cache_var(const int, const int);
-      int get_cache_weight(const int, const int);
+  const vector<float> get_cache_weights(const int);
       ~Cluster();
    private:
       // Store the cluster id
@@ -77,7 +75,7 @@ class Cluster {
       vector<vector<float> > trans;
       vector<vector<float> > cache_trans;
   vector<vector<float> > emissions; 
-  vector<vector<float> > caches;
+  vector<vector<float> > cache;
       // Store segments that belong to this cluster.
       // Utilities
       Calculator calculator;

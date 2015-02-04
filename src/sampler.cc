@@ -208,7 +208,7 @@ bool Sampler::sample_boundary(vector<Bound*>::iterator iter, \
          Cluster* new_c;
          if (new_segment -> is_hashed()) {
 	   cout << "hashed" << endl;
-            for(int i = 0; i < clusters.size(); ++i) {
+            for(unsigned int i = 0; i < clusters.size(); ++i) {
                if (new_segment -> get_cluster_id() == \
                  clusters[i] -> get_cluster_id()) {
                   new_c = clusters[i];
@@ -351,7 +351,7 @@ SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
    SampleBoundInfo info;
    Cluster* c_h0;
    if (h0 -> is_hashed()) {
-      for (int i = 0; i < clusters.size(); ++i) {
+      for (unsigned int i = 0; i < clusters.size(); ++i) {
          if(h0 -> get_cluster_id() == clusters[i] -> get_cluster_id()) {
             c_h0 = clusters[i];
          }
@@ -375,7 +375,7 @@ SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
    info.set_c_h0(c_h0);
    Cluster* c_h1_l;
    if (h1_l -> is_hashed()) {
-      for (int i = 0; i < clusters.size(); ++i) {
+      for (unsigned int i = 0; i < clusters.size(); ++i) {
          if(h1_l -> get_cluster_id() == clusters[i] -> get_cluster_id()) {
             c_h1_l = clusters[i];
          }
@@ -403,7 +403,7 @@ SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
    info.set_c_h1_l(c_h1_l);
    Cluster* c_h1_r;
    if (h1_r -> is_hashed()) {
-      for (int i = 0; i < clusters.size(); ++i) {
+      for (unsigned int i = 0; i < clusters.size(); ++i) {
          if(h1_r -> get_cluster_id() == clusters[i] -> get_cluster_id()) {
             c_h1_r = clusters[i];
          }
@@ -460,7 +460,7 @@ Cluster* Sampler::sample_cluster_from_others(vector<Cluster*>& clusters) {
    double uni_class[clusters.size()];
    double subsurface = 0;
    double log_pro = log(1.0/clusters.size());
-   for (int i = 0; i < clusters.size() - 1; ++i) {
+   for (unsigned int i = 0; i < clusters.size() - 1; ++i) {
       subsurface += 1.0 / clusters.size();
       uni_class[i] = log_pro; 
    }
@@ -469,20 +469,19 @@ Cluster* Sampler::sample_cluster_from_others(vector<Cluster*>& clusters) {
    unsigned int c = sample_index_from_log_distribution(posteriors);
    for (int i = 0; i < state_num; ++i) {
      //randomly initialize
-     const float* other_weights = clusters[c] -> get_emission(i);
+     vector<float> other_weights = clusters[c] -> get_emission(i);
      float avg_weight = 0;
      for (int d = 0; d < dim; ++d) {
        avg_weight += other_weights[d];
      }
      avg_weight /= dim;
-     float new_weights[dim];
+     vector<float> new_weights;
      float random_unit = sample_from_unit();
      float sign = random_unit >= 0.5 ? 1 : -1;
      for (int d = 0; d < dim; ++d) {
-       new_mean[d] = other_weights[d] + annealing * sign * avg_mean;
+       new_weights.push_back(other_weights[d] + annealing * sign * avg_weight);
      }
-     vector<float> new_state(new_weights);
-     new_cluster -> update_emission(new_state, i);
+     new_cluster -> update_emission(new_weights, i);
    }
    return new_cluster;
 }
@@ -790,8 +789,8 @@ const float* Sampler::sample_from_gaussian(int index, \
    float* new_mean = new float[dim];
    for(int i = 0; i < dim; ++i) {
       float random_from_unit = sample_from_unit();
-      normal_distribution<> dist(updated_mean, std);
-      new_mean[i] = quantile(dist, random_from_unit);
+      //normal_distribution<> dist(updated_mean, std);
+      //new_mean[i] = quantile(dist, random_from_unit);
    }
    return new_mean;
 }
