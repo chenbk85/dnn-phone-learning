@@ -552,7 +552,7 @@ bool Manager::load_segments(const string& fndata_list) {
 */
 void Manager::init_sampler() {
    sampler.init_prior(s_dim, \
-     s_state, s_mixture, \
+     s_state, \
      s_dp_alpha, \
      s_beta_alpha, s_beta_beta, \
      s_gamma_shape, \
@@ -751,36 +751,22 @@ bool Manager::load_in_model(const string& fname, const int threshold) {
    for (int i = 0; i < cluster_num; ++i) {
       int member_num;
       int state_num;
-      int mixture_num;
       int vector_dim;
       fin.read(reinterpret_cast<char*> (&member_num), sizeof(int));
       fin.read(reinterpret_cast<char*> (&state_num), sizeof(int));
-      fin.read(reinterpret_cast<char*> (&mixture_num), sizeof(int));
       fin.read(reinterpret_cast<char*> (&vector_dim), sizeof(int));
-      Cluster* new_cluster = new Cluster(state_num, mixture_num, vector_dim);
+      Cluster* new_cluster = new Cluster(state_num, vector_dim);
       new_cluster -> set_member_num(member_num);
       float trans[state_num * (state_num + 1)];
       fin.read(reinterpret_cast<char*> (trans), sizeof(float) * \
         state_num * (state_num + 1));
       new_cluster -> set_trans(trans);
       for (int j = 0; j < state_num; ++j) {
-         for (int k = 0 ; k < mixture_num; ++k) {
-            float w;
-            float det;
-            float mean[vector_dim];
-            float var[vector_dim];
-            fin.read(reinterpret_cast<char*> (&w), \
-              sizeof(float));
-            fin.read(reinterpret_cast<char*> (&det), \
-              sizeof(float));
-            fin.read(reinterpret_cast<char*> (mean), \
+            fin.read(reinterpret_cast<char*> (weights), \
               sizeof(float) * vector_dim);
             fin.read(reinterpret_cast<char*> (var), \
               sizeof(float) * vector_dim);
-            new_cluster -> set_state_mixture_weight(j, k, w);
-            new_cluster -> set_state_mixture_det(j, k, det);
-            new_cluster -> set_state_mixture_mean(j, k, mean);
-            new_cluster -> set_state_mixture_var(j, k, var);
+            new_cluster -> set_weights(j, k, weights);
          }
       }
       if (new_cluster -> get_member_num() > threshold) {
@@ -800,18 +786,6 @@ bool Manager::load_in_model(const string& fname, const int threshold) {
 
 }
 
-bool Manager::load_in_model_id(const string& fn_mixture_id) {
-   ifstream fin(fn_mixture_id.c_str());
-   for (int i = 0; i < clusters.size(); ++i) {
-     int c_id;
-     fin >> c_id;
-     clusters[i] -> set_cluster_id(c_id);
-     //clusters[i] -> set_cluster_id(i);
-      Cluster::aval_id = i + 1;
-   }
-   fin.close();
-   return true;
-}
 
 Cluster* Manager::find_cluster(const int c_id) {
    for (int i = 0; i < clusters.size(); ++i) {
@@ -945,15 +919,10 @@ bool Manager::load_in_data(const string& fnbound_list, const int g_size) {
 
 }
 
-bool Manager::load_snapshot(const string& fn_snapshot, \
-  const string& fn_mixture_id, const string& fn_data, \
+bool Manager::load_snapshot(const string& fn_snapshot, const string& fn_data, \
   const int g_size) {
    if (!load_in_model(fn_snapshot, 0)) {
       cout << "Cannot load in snapshot" << endl;
-      return false;
-   }
-   if (!load_in_model_id(fn_mixture_id)) {
-      cout << "Cannot load in model id" << endl;
       return false;
    }
    if (!load_in_data(fn_data, g_size)) {
@@ -969,93 +938,6 @@ bool Manager::load_snapshot(const string& fn_snapshot, \
    return true;
 }
 
-/*
-bool Manager::load_snapshot(const string& fn_snapshot) {
-   ifstream fsnapshot(fn_snapshot.c_str(), ios::binary);
-   int aval_id;
-   fsnapshot.read(reinterpret_cast<char*> (&aval_id), sizeof(int));
-   Cluster::aval_id = aval_id;
-   int cluster_counter;
-   fsnapshot.read(reinterpret_cast<char*> (&cluster_counter), sizeof(int));
-   Cluster::counter = cluster_counter;
-   int aval_data;
-   fsnapshot.read(reinterpret_cast<char*> (&aval_data), sizeof(int));
-   Segment::counter = aval_data;
-   int cluster_num;
-   fsnapshot.read(reinterpret_cast<char*> (&cluster_num), sizeof(int));
-   for (int i_cluster = 0; i_cluster < cluster_num; ++i_cluster) {
-      int id;
-      fsnapshot.read(reinterpret_cast<char*> (&id), sizeof(int));
-      int state_num;
-      fsnapshot.read(reinterpret_cast<char*> (&state_num), sizeof(int));
-      int mixture_num;
-      fsnapshot.read(reinterpret_cast<char*> (&mixture_num), sizeof(int));
-      int vector_dim;
-      fsnapshot.read(reinterpret_cast<char*> (&vector_dim), sizeof(int));
-
-      Cluster* new_cluster = new Cluster(state_num, mixture_num, vector_dim);
-      new_cluster -> set_cluster_id(id);
-
-      float trans[state_num];
-      fsnapshot.read(reinterpret_cast<char*> (trans), \
-        sizeof(float) * state_num);
-      new_cluster -> update_trans(trans); 
-      for (int i_state = 0; i_state < state_num; ++i_state) {
-         cout << "loading GMM " << i_state << endl;
-         Gmm new_gmm(mixture_num, vector_dim);
-         if (!load_gmm_from_file(fsnapshot, new_gmm, false)) {
-            return false;
-         }
-         new_cluster -> update_emission(new_gmm, i_state);
-      }
-      cout << "Loading members..." << endl;
-      int member_num;
-      fsnapshot.read(reinterpret_cast<char*> (&member_num), sizeof(int));
-      for (int i_member = 0; i_member < member_num; ++i_member) {
-         int tag_length;
-         fsnapshot.read(reinterpret_cast<char*> (&tag_length), sizeof(int));
-         char tag_c[tag_length];
-         fsnapshot.read(reinterpret_cast<char*> (tag_c), tag_length);
-         string tag(tag_c);
-         int start_frame;
-         fsnapshot.read(reinterpret_cast<char*> (&start_frame), sizeof(int));
-         int end_frame;
-         fsnapshot.read(reinterpret_cast<char*> (&end_frame), sizeof(int)); 
-         int cluster_id;
-         fsnapshot.read(reinterpret_cast<char*> (&cluster_id), sizeof(int));
-         int frame_num;
-         fsnapshot.read(reinterpret_cast<char*> (&frame_num), sizeof(int));
-         int hidden_states[frame_num];
-         fsnapshot.read(reinterpret_cast<char*> (hidden_states), \
-           sizeof(int) * frame_num);
-         int mixture_id[frame_num];
-         fsnapshot.read(reinterpret_cast<char*> (mixture_id), \
-           sizeof(int) * frame_num);
-         Segment* new_segment = new Segment(frame_num, vector_dim, \
-           tag, start_frame, end_frame);
-         new_segment -> set_cluster_id(cluster_id);
-         new_segment -> set_hidden_states(hidden_states);
-         new_segment -> set_mixture_id(mixture_id);
-         float** frame_data = new float* [frame_num];
-         for (int i_frame = 0; i_frame < frame_num; ++i_frame) {
-            frame_data[i_frame] = new float[vector_dim];
-            fsnapshot.read(reinterpret_cast<char*> (frame_data[i_frame]), \
-              sizeof(float) * vector_dim);
-         }
-         new_segment -> set_frame_data(frame_data);
-         for (int i_frame = 0; i_frame < frame_num; ++i_frame) {
-            delete[] frame_data[i_frame];
-         }
-         delete[] frame_data;
-         new_cluster -> append_member(new_segment);
-         segments.push_back(new_segment);
-      }
-      clusters.push_back(new_cluster);
-   }
-   fsnapshot.close();
-   return true;
-}
-*/
 Manager::~Manager() {
    delete[] data; 
    vector<Bound*>::iterator iter_bounds;
