@@ -48,29 +48,44 @@ std::vector<std::string> split(const std::string &s, char delim) {
 
 bool Manager::load_config(const string& fnconfig) {
    ifstream fconfig(fnconfig.c_str(), ifstream::in);
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_dim;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_state;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_mixture;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_dp_alpha;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_beta_alpha;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_beta_beta;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_gamma_shape;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_norm_kappa;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_gamma_weight_alpha;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_gamma_trans_alpha;
-   if (!fconfig.good()) {return false;}
-   fconfig >> s_h0;
-   fconfig.close();
+   string line;
+   while(config.good()){
+     fconfig >> line;
+     std::vector<std::string> parts = split(line, ':');
+     if(parts[0] == "s_dim"){
+       s_dim = int(parts[1]);
+     }
+     else if(parts[0] == "s_state"){
+       s_state = int(parts[1]);
+     }
+     else if(parts[0] == "s_dp_alpha"){
+       s_dp_alpha = float(parts[1]);
+     }
+     else if(parts[0] == "s_beta_alpha"){
+       s_beta_alpha = float(parts[1]);
+     }
+     else if(parts[0] == "s_beta_beta"){
+       s_beta_beta = float(parts[1]);
+     }
+     else if(parts[0] == "s_gamma_shape"){
+       s_gamma_shape = float(parts[1]);
+     }
+     else if(parts[0] == "s_norm_kappa"){
+       s_norm_kappa = float(parts[1]);
+     }
+     else if(parts[0] == "s_gamma_weight_alpha"){
+       s_gamma_weight_alpha = float(parts[1]);
+     }
+     else if(parts[0] == "s_gamma_trans_alpha"){
+       s_gamma_trans_alpha = float(parts[1]);
+     }
+     else if(parts[0] == "s_h0"){
+       s_h0 = float(parts[1]);
+     }
+     else{
+       cout << "Unrecognized config parameter: " << parts[0] << endl;
+     }
+   }
    return true;
 }
 

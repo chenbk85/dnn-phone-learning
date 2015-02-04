@@ -22,29 +22,49 @@
 #include "manager.h"
 
 void print_usage() {
-   cout << "./gibbs -l data_list -p gmm_prior -c config_list \
-     -n gibbs_iter -d result_dir -b base -s snapshot_file -l cluster_id" << endl;
+  cout << "Usage:" << endl;
+   cout << "  ./dnn-phone-learning -d [data-list] -c [config-file] -g [gibbs-iter] -r [results-dir] -b [batch_size] -s [snapshot] -f [cluster-file]" << endl;
 }
 
 int main(int argc, char* argv[]) {
-   if (argc != 17 and argc != 13) {
+   string data_list = "";
+   string config_file = "";
+   int gibbs_iter = 100;
+   string result_dir = "results_" + timestamp();
+   int batch_size = 100;
+   string snapshot = "";
+   string cluster_file;
+
+  while ((int c = getopt (argc, argv, "dcgrbsf:")) != -1)
+    if(c == 'd'){
+      data_list = optarg;
+    }
+    else if(c == 'c'){
+      config_file = optarg;
+    }
+    else if(c == 'g'){
+      gibbs_iter = int(optarg);
+    }
+    else if(c == 'r'){
+      results_dir = optarg;
+    }
+    else if(c == 'b'){
+      batch_size = int(optarg);
+    }
+    else if(c == 's'){
+      snapshot = optarg;
+    }
+    else if(c == 'f'){
+      cluster_file = optarg;
+    }
+    else{
       print_usage();
       return 1;
+    }
    }
-   string data_list = argv[2];
-   string gmm_prior = argv[4];
-   string config_list = argv[6];
-   int gibbs_iter = atoi(argv[8]);
-   string result_dir = argv[10];
-   int base = atoi(argv[12]);
-   string snapshot = "";
-   string fn_cluster_id;
-   if (argc == 17) {
-      snapshot = argv[14];
-      fn_cluster_id = argv[16];
-   }
+
    Manager projectManager;
-   if (!projectManager.load_config(config_list)) {
+   if (!projectManager.load_config(config_file)) {
       cout << "Configuration file seems bad. Check " 
            << config_list << " to make sure." << endl;
       return -1;
@@ -52,20 +72,14 @@ int main(int argc, char* argv[]) {
    else {
       cout << "Configuration file loaded successfully..." << endl;
    }
-   if (!projectManager.load_gmm(gmm_prior)) {
-      cout << "Gmm file seems bad. Check " 
-           << gmm_prior << " to make sure." << endl;
-      return -1;
-   }
-   else {
-      cout << "Gmm file loaded successfully..." << endl;
-   }
+
    projectManager.init_sampler();
    cout << "Sampler initialized successfully..." << endl;
+
    if (snapshot != "") {
       cout << "Loading snapshot..." << endl;
       if (!projectManager.load_snapshot(snapshot, \
-           fn_cluster_id, data_list, base)) {
+           cluster_file, data_list, batch_size)) {
          cout << "snapshot file seems bad. Check "
            << snapshot << "." << endl;
       }
@@ -74,7 +88,7 @@ int main(int argc, char* argv[]) {
       }
    }
    else {
-      if (!projectManager.load_bounds(data_list, base)) {
+      if (!projectManager.load_bounds(data_list, batch_size)) {
          cout << "data list file seems bad. Check " 
             << data_list << " to make sure." << endl;
          return -1;
@@ -83,6 +97,8 @@ int main(int argc, char* argv[]) {
          cout << "Data loaded successfully..." << endl;
       }
    }
+
    projectManager.gibbs_sampling(gibbs_iter, result_dir);
+
    return 0;
 }
