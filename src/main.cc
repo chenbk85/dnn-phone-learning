@@ -18,6 +18,9 @@
 #include <fstream>
 #include <string>
 #include <cstdlib>
+#include <stdio.h>
+#include <getopt.h>
+#include <time.h>
 
 #include "manager.h"
 
@@ -26,47 +29,58 @@ void print_usage() {
    cout << "  ./dnn-phone-learning -d [data-list] -c [config-file] -g [gibbs-iter] -r [results-dir] -b [batch_size] -s [snapshot] -f [cluster-file]" << endl;
 }
 
+string replaceChar(string str, char ch1, char ch2) {
+  for (int i = 0; i < str.length(); ++i) {
+    if (str[i] == ch1)
+      str[i] = ch2;
+  }
+
+  return str;
+}
+
 int main(int argc, char* argv[]) {
+  time_t timer = time(NULL);
+  string result_dir = "results_" + replaceChar(ctime(&timer), ' ', '_');
    string data_list = "";
    string config_file = "";
    int gibbs_iter = 100;
-   string result_dir = "results_" + timestamp();
    int batch_size = 100;
    string snapshot = "";
    string cluster_file;
 
-  while ((int c = getopt (argc, argv, "dcgrbsf:")) != -1)
-    if(c == 'd'){
-      data_list = optarg;
-    }
-    else if(c == 'c'){
-      config_file = optarg;
-    }
-    else if(c == 'g'){
-      gibbs_iter = int(optarg);
-    }
-    else if(c == 'r'){
-      results_dir = optarg;
-    }
-    else if(c == 'b'){
-      batch_size = int(optarg);
-    }
-    else if(c == 's'){
-      snapshot = optarg;
-    }
-    else if(c == 'f'){
-      cluster_file = optarg;
-    }
-    else{
-      print_usage();
-      return 1;
-    }
+   int c;
+   while ((c = getopt(argc, argv, "dcgrbsf:")) != -1){
+     if(c == 'd'){
+       data_list = optarg;
+     }
+     else if(c == 'c'){
+       config_file = optarg;
+     }
+     else if(c == 'g'){
+       gibbs_iter = atoi(optarg);
+     }
+     else if(c == 'r'){
+       result_dir = optarg;
+     }
+     else if(c == 'b'){
+       batch_size = atoi(optarg);
+     }
+     else if(c == 's'){
+       snapshot = optarg;
+     }
+     else if(c == 'f'){
+       cluster_file = optarg;
+     }
+     else{
+       print_usage();
+       return 1;
+     }
    }
 
    Manager projectManager;
    if (!projectManager.load_config(config_file)) {
       cout << "Configuration file seems bad. Check " 
-           << config_list << " to make sure." << endl;
+           << config_file << " to make sure." << endl;
       return -1;
    }
    else {

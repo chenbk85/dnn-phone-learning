@@ -47,40 +47,54 @@ std::vector<std::string> split(const std::string &s, char delim) {
 }
 
 bool Manager::load_config(const string& fnconfig) {
+  //defaults
+  s_dim = 64;
+  s_state = 3;
+  s_dp_alpha = 1.0;
+  s_beta_alpha = 5.0;
+  s_beta_beta = 5.0;
+  s_gamma_shape = 3.0;
+  s_norm_kappa = 5.0;
+  s_gamma_weight_alpha = 3.0;
+  s_gamma_trans_alpha = 3.0;
+  s_h0 = 0.5;
+
    ifstream fconfig(fnconfig.c_str(), ifstream::in);
    string line;
-   while(config.good()){
+   while(fconfig.good()){
      fconfig >> line;
      std::vector<std::string> parts = split(line, ':');
+     char *value = (char*)parts[1].c_str();
+     char* nullP;
      if(parts[0] == "s_dim"){
-       s_dim = int(parts[1]);
+       s_dim = std::atoi(value);
      }
      else if(parts[0] == "s_state"){
-       s_state = int(parts[1]);
+       s_state = std::atoi(value);
      }
      else if(parts[0] == "s_dp_alpha"){
-       s_dp_alpha = float(parts[1]);
+       s_dp_alpha = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_beta_alpha"){
-       s_beta_alpha = float(parts[1]);
+       s_beta_alpha = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_beta_beta"){
-       s_beta_beta = float(parts[1]);
+       s_beta_beta = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_gamma_shape"){
-       s_gamma_shape = float(parts[1]);
+       s_gamma_shape = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_norm_kappa"){
-       s_norm_kappa = float(parts[1]);
+       s_norm_kappa = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_gamma_weight_alpha"){
-       s_gamma_weight_alpha = float(parts[1]);
+       s_gamma_weight_alpha = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_gamma_trans_alpha"){
-       s_gamma_trans_alpha = float(parts[1]);
+       s_gamma_trans_alpha = std::strtof(value, &nullP);
      }
      else if(parts[0] == "s_h0"){
-       s_h0 = float(parts[1]);
+       s_h0 = std::strtof(value, &nullP);
      }
      else{
        cout << "Unrecognized config parameter: " << parts[0] << endl;
