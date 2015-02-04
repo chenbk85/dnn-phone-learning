@@ -40,7 +40,6 @@ Segment::Segment(string tag_name, vector<Bound*> mem) {
    set_end_frame();
    dimension = members[0] -> get_dim();
    hidden_states = new int[frame_num];
-   mixture_id = new int[frame_num];
    hashed = false;
 }
 
@@ -50,7 +49,6 @@ const Segment& Segment::operator= (const Segment& source) {
    }
    else {
       delete[] hidden_states;
-      delete[] mixture_id;
    }
    tag = source.get_tag();
    members = source.get_members();
@@ -61,12 +59,9 @@ const Segment& Segment::operator= (const Segment& source) {
    cluster_id = source.get_cluster_id();
    frame_num = source.get_frame_num();
    dimension = source.get_dimension();
-   mixture_id = new int [frame_num];
    hidden_states = new int [frame_num];
    frame_data = source.get_frame_data(); 
    memcpy(hidden_states, source.get_hidden_states_all(), \
-     sizeof(int) * frame_num);
-   memcpy(mixture_id, source.get_mixture_id_all(), \
      sizeof(int) * frame_num);
    hashed = source.is_hashed();
    hash_cluster_post = source.get_hash();
@@ -84,11 +79,8 @@ Segment::Segment(const Segment& source) {
    members = source.get_members();
    set_start_frame_index();
    set_member_parent();
-   mixture_id = new int [frame_num];
    hidden_states = new int [frame_num];
    memcpy(hidden_states, source.get_hidden_states_all(), \
-     sizeof(int) * frame_num);
-   memcpy(mixture_id, source.get_mixture_id_all(), \
      sizeof(int) * frame_num);
    hashed = source.is_hashed();
    hash_cluster_post = source.get_hash(); 
@@ -176,16 +168,6 @@ int Segment::get_cluster_id() const {
    return cluster_id;
 }
 
-// To set mixture_id
-void Segment::set_mixture_id(const int* source) {
-   memcpy(mixture_id, source, sizeof(int) * frame_num);
-}
-
-// To get mixture_id for frame i
-int Segment::get_mixture_id(int id) const {
-   return mixture_id[id];
-}
-
 void Segment::show_data() {
    for (int i = 0; i < frame_num; ++i) {
       for (int j = 0; j < dimension; ++j) {
@@ -205,5 +187,4 @@ void Segment::write_class_label(const string& dir) {
 // Free memories allocated for this object
 Segment::~Segment() {
    delete[] hidden_states;
-   delete[] mixture_id;
 }

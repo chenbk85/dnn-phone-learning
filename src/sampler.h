@@ -26,7 +26,6 @@
 */
 #include "segment.h"
 #include "cluster.h"
-#include "gmm.h"
 #include "sample_boundary_info.h"
 #include "calculator.h"
 #include "storage.h"
@@ -49,7 +48,7 @@ class Sampler {
         const float, const float, \
         const float, const float, \
         const float, const float, \
-        const float, Gmm, const float);
+        const float, const float);
       // sample the cluster for each segment
       SampleBoundInfo sample_h0_h1(Segment*, Segment*, Segment*, vector<Cluster*>&);
       void is_boundary(Segment*, Segment*, Segment*, list<Segment*>& , \
@@ -62,8 +61,6 @@ class Sampler {
       Cluster* sample_cluster_from_others(vector<Cluster*>&);
       // sample the hidden state squence
       void sample_hidden_states(Segment&, Cluster*);
-      // sample the mixture_id for each data frame
-      void sample_mixture_id(Segment&, Cluster*);
       // sample cluster parameters
       void sample_hmm_parameters(Cluster&);
       void sample_pseudo_state_seq(Cluster*, int*, int);
@@ -99,7 +96,6 @@ class Sampler {
       ~Sampler();
    private:
       int dim; 
-      int mixture_num;
       int state_num;
       float dp_alpha;
       float beta_alpha;
@@ -110,7 +106,6 @@ class Sampler {
       float norm_kappa;
       vector<double> boundary_prior;
       vector<double> boundary_prior_log;
-      Gmm gmm;
       Calculator calculator;
       // base_generator_type generator;
       VSLStreamStatePtr stream; 

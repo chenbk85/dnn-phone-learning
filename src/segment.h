@@ -32,7 +32,6 @@ class Segment {
       void set_frame_num();
       void set_frame_data();
       void set_hidden_states(int*);
-      void set_mixture_id(const int*);
       void set_cluster_id(int);
       void set_start_frame();
       void set_end_frame();
@@ -44,7 +43,6 @@ class Segment {
       int get_frame_num() const;
       const float* get_frame_i_data(int) const;
       int get_hidden_states(int) const;
-      int get_mixture_id(int) const;
       int get_cluster_id() const;
       int get_frame_index(const int offset) const \
                    {return (start_frame_index + offset);}
@@ -54,7 +52,6 @@ class Segment {
       int get_dimension() const {return dimension;}
       vector<Bound*> get_members() const {return members;}
       const int* get_hidden_states_all() const {return hidden_states;}
-      const int* get_mixture_id_all() const {return mixture_id;}
       int get_segment_num() const {return counter;}
       bool is_hashed() const {return hashed;}
       void change_hash_status(bool);
@@ -69,7 +66,6 @@ class Segment {
       int cluster_id;
       int frame_num;
       int* hidden_states;
-      int* mixture_id;
       int dimension;
       vector<const float*> frame_data;
       vector<Bound*> members;

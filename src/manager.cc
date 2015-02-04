@@ -24,7 +24,6 @@
 #include "sampler.h"
 #include "cluster.h"
 #include "segment.h"
-#include "gmm.h"
 
 using namespace std;
 
@@ -100,50 +99,6 @@ bool Manager::load_config(const string& fnconfig) {
        cout << "Unrecognized config parameter: " << parts[0] << endl;
      }
    }
-   return true;
-}
-
-bool Manager::load_gmm_from_file(ifstream& fgmm, Gmm& gmm, bool inverse) {
-   if (!fgmm.good()) {
-      return false;
-   }
-   cout << "Reading out gmms..." << endl;
-   for (int i = 0; i < s_mixture; ++i) {
-      float w_i;
-      float mean_i[s_dim];
-      float var_i[s_dim];
-      fgmm.read(reinterpret_cast<char*>(&w_i), sizeof(float));
-      fgmm.read(reinterpret_cast<char*>(mean_i), sizeof(float) * s_dim);
-      fgmm.read(reinterpret_cast<char*>(var_i), sizeof(float) * s_dim);
-      gmm.get_mixture(i).update_weight(w_i);
-      gmm.get_mixture(i).update_mean(mean_i);
-      if (!inverse) {
-         for (int j = 0; j < s_dim; ++j) {
-            var_i[j] = 1 / var_i[j];
-         }
-      }
-      /*
-      for (int j = 0; j < s_dim; ++j) {
-         cout << var_i[j] << endl;
-      }
-      */
-      gmm.get_mixture(i).update_var(var_i);
-      gmm.get_mixture(i).update_det();
-   }
-   return true;
-}
-
-bool Manager::load_gmm(const string& fngmm) {
-   cout << "Loading gmm" << endl;
-   ifstream fgmm(fngmm.c_str(), ios::binary);
-   if (!fgmm.good()) {
-      return false;
-   }
-   s_gmm.init(s_mixture, s_dim);
-   if (!load_gmm_from_file(fgmm, s_gmm, true)) {
-      return false;
-   }
-   fgmm.close();
    return true;
 }
 
@@ -604,7 +559,7 @@ void Manager::init_sampler() {
      s_norm_kappa, \
      s_gamma_weight_alpha, \
      s_gamma_trans_alpha, \
-     s_gmm, s_h0); 
+     s_h0); 
 }
 
 bool Manager::update_boundaries(const int group_ptr) {

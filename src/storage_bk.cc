@@ -19,7 +19,6 @@
 #include <iostream>
 #include <cmath>
 #include "storage.h"
-#include "mixture.h"
 
 #define BRNG VSL_BRNG_MT19937 
 #define GAMMA_METHOD VSL_RNG_METHOD_GAMMA_GNORM

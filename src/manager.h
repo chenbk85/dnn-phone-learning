@@ -22,14 +22,12 @@
 #include "sampler.h" 
 #include "cluster.h"
 #include "segment.h"
-#include "gmm.h"
 
 using namespace std;
 
 class Manager {
    public:
       Manager();
-      bool load_gmm(const string&);
       // bool load_segments(const string&);
       bool load_bounds(const string&, const int);
       bool load_bounds_for_snapshot(const string&, const int);
@@ -37,7 +35,6 @@ class Manager {
       void init_sampler();
       void gibbs_sampling(const int, const string);
       // bool load_snapshot(const string&);
-      bool load_gmm_from_file(ifstream&, Gmm&, bool);
       bool update_boundaries(const int);
       void update_clusters(const bool, const int);
       void load_data_to_matrix();
@@ -56,7 +53,6 @@ class Manager {
       vector<Cluster*> clusters;
       vector<Bound*> bounds;
       const float** data;
-      Gmm s_gmm; 
       int s_dim;
       int s_state;
       float s_dp_alpha;

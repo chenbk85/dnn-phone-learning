@@ -19,7 +19,6 @@
 #include <iostream>
 #include <cmath>
 #include "storage.h"
-#include "mixture.h"
 
 #define BRNG VSL_BRNG_MT19937 
 #define GAMMA_METHOD VSL_RNG_METHOD_GAMMA_GNORM
@@ -34,8 +33,7 @@ Storage::Storage():UNIT(0), MEAN(1), PRE(2), EMIT(3) {
 void Storage::init(const int s_dim, \
                 const int s_gamma_shape, \
                 const int s_norm_kappa, \
-                const float s_emit_gamma, \
-                Mixture& s_mixture) {
+                const float s_emit_gamma) {
    batch_size = 10000000;
    dim = s_dim;
    gamma_shape = s_gamma_shape;
@@ -49,7 +47,6 @@ void Storage::init(const int s_dim, \
       mean[i] = new float [batch_size];
       pre[i] = new float [batch_size];
    }
-   mixture_base = s_mixture;
    unsigned int SEED = time(0);
    vslNewStream(&stream, BRNG,  SEED);
    unit_index = 0;
@@ -61,8 +58,7 @@ void Storage::init(const int s_dim, \
 Storage::Storage(const int s_dim, \
                  const int s_gamma_shape, \
                  const int s_norm_kappa, \
-                 const float s_emit_gamma, \
-                 Mixture& s_mixture) \
+                 const float s_emit_gamma)
                  :UNIT(0), MEAN(1), PRE(2), EMIT(3){
    batch_size = 10000000;
    dim = s_dim;
@@ -77,7 +73,6 @@ Storage::Storage(const int s_dim, \
       mean[i] = new float [batch_size];
       pre[i] = new float [batch_size];
    }
-   mixture_base = s_mixture;
    unsigned int SEED = time(0);
    vslNewStream(&stream, BRNG,  SEED);
    unit_index = 0;
@@ -141,8 +136,8 @@ float* Storage::get_random_samples(const int TYPE) {
 }
 
 void Storage::sample_batch(const int TYPE) {
-   const float* gamma_rate = mixture_base.get_var(); 
-   const float* prior_mean = mixture_base.get_mean();
+  const float* gamma_rate;
+  const float* prior_mean;
    if (TYPE == UNIT) {
       vsRngUniform(UNIFORM_METHOD, stream, batch_size, unit, 0, 1);
    }

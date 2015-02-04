@@ -17,13 +17,12 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
-#include "mixture.h"
 
 class Storage {
    public:
       Storage();
-      void init(const int, const int, const int, const float, Mixture&); 
-      Storage(const int, const int, const int, const float, Mixture&); 
+      void init(const int, const int, const int, const float); 
+      Storage(const int, const int, const int, const float); 
       void sample_batch(const int);
       void set_emit_gamma(const float);
       float* get_random_samples(const int);
@@ -46,7 +45,6 @@ class Storage {
       int mean_index;
       int pre_index;
       int emit_index;
-      Mixture mixture_base;
       VSLStreamStatePtr stream; 
 };
 

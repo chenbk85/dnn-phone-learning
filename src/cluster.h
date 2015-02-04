@@ -21,7 +21,6 @@
 #include <vector>
 #include <list>
 #include "segment.h"
-#include "gmm.h"
 #include "calculator.h"
 
 using namespace std;
@@ -35,7 +34,7 @@ class Cluster {
       // transition prob
       void init(const int, const int, const int);
       void update_trans(vector<vector<float> >);
-      void update_emission(Gmm&, int);
+  void update_emission(vector<float>, int);
       void append_member(Segment*);
       void remove_members(Segment*);
       void set_cluster_id();
@@ -45,16 +44,15 @@ class Cluster {
       bool get_precompute_status() const {return precompute_status;}
       double compute_likelihood(const Segment&, const int);
       double compute_emission_likelihood(int, const float*, const int);
-      vector<double> compute_gmm_mixture_posterior_weight(int, const float*, int);
+      vector<double> compute_posterior_weight(int, const float*, int);
       float get_state_trans_prob(int, int) const;
       int get_state_num() const { return state_num; }
-      int get_mixture_num() const { return mixture_num; }
       int get_dim() const { return vector_dim;}
       // list<Segment*>& get_members() { return members; }
       void show_member_len();
       void precompute(int, const float**);
       void set_precompute_status(const bool new_status);
-      Gmm& get_emission(int index) {return emissions[index];} 
+  vector<float> get_emission(int index) {return emissions[index];} 
       void state_snapshot(const string&); 
       void update_age() {++age;}
       void increase_trans(const int, const int);
@@ -63,10 +61,6 @@ class Cluster {
       void decrease_cache(const int, const int, const float*);
       void set_trans(const float*);
       void set_member_num(const int s_member_num) {member_num = s_member_num;}
-      void set_state_mixture_weight(const int, const int, const float);
-      void set_state_mixture_det(const int, const int, const float);
-      void set_state_mixture_mean(const int, const int, const float*);
-      void set_state_mixture_var(const int, const int, const float*);
       int get_age() const {return age;}
       vector<vector<float> >& get_cache_trans() { return cache_trans;}
       const float* get_cache_mean(const int, const int);
@@ -78,13 +72,12 @@ class Cluster {
       int id;
       int age;
       int state_num;
-      int mixture_num;
       int vector_dim;
       int member_num;
       vector<vector<float> > trans;
       vector<vector<float> > cache_trans;
-      vector<Gmm> emissions; 
-      vector<Gmm> caches;
+  vector<vector<float> > emissions; 
+  vector<vector<float> > caches;
       // Store segments that belong to this cluster.
       // Utilities
       Calculator calculator;

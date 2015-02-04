@@ -26,10 +26,9 @@ using namespace std;
 int Cluster::counter = 0;
 int Cluster::aval_id = 0;
 
-Cluster::Cluster(int s_num, int m_num, int v_dim) {
+Cluster::Cluster(int s_num, int v_dim) {
 // Cluster::Cluster() {
    state_num = s_num;
-   mixture_num = m_num;
    vector_dim = v_dim;
    member_num = 0;
    precompute_status = false;
@@ -50,8 +49,7 @@ Cluster::Cluster(int s_num, int m_num, int v_dim) {
    }
    id = -1;
    for(int i = 0; i < state_num; ++i) {
-      Gmm prototype; 
-      prototype.init(mixture_num, vector_dim);
+     vector<float> prototype(vector_dim); 
       emissions.push_back(prototype);
       caches.push_back(prototype);
    }
@@ -59,14 +57,12 @@ Cluster::Cluster(int s_num, int m_num, int v_dim) {
 }
 
 void Cluster::init(const int s_state_num, \
-                   const int s_mixture_num, \
                    const int s_vector_dim) {
    state_num = s_state_num;
-   mixture_num = s_mixture_num;
    vector_dim = s_vector_dim;
    for (int i = 0 ; i < state_num; ++i) {
-      Gmm new_gmm(mixture_num, vector_dim);
-      emissions.push_back(new_gmm);
+     vector<float> new_weights(vector_dim); 
+      emissions.push_back(new_weights);
    }
    for (int i = 0 ; i < state_num; ++i) {
       vector<float> inner_trans;
@@ -88,34 +84,20 @@ void Cluster::decrease_trans(const int i, const int j) {
    --cache_trans[i][j];
 }
 
-void Cluster::increase_cache(const int s_t, \
-  const int m_t, const float* data) {
-   caches[s_t].get_mixture(m_t).add_sample_count_mean(data, 1);
-   caches[s_t].get_mixture(m_t).add_sample_count_var(data, 1);
-   caches[s_t].get_mixture(m_t).add_sample_count_weight(1);
+void Cluster::increase_cache(const int s_t, const float* data) {
+  cache[s_t] += data;
 }
 
-void Cluster::decrease_cache(const int s_t, \
-  const int m_t, const float* data) {
-   caches[s_t].get_mixture(m_t).sub_sample_count_mean(data, 1);
-   caches[s_t].get_mixture(m_t).sub_sample_count_var(data, 1);
-   caches[s_t].get_mixture(m_t).sub_sample_count_weight(1);
+void Cluster::decrease_cache(const int s_t,  const float* data) {
+  cache[s_t] -= data;
 }
 
-void Cluster::update_emission(Gmm& gmm, int index) {
-   emissions[index] = gmm;
+void Cluster::update_emission(vector<float> weights, int index) {
+   emissions[index] = weights;
 }
 
-const float* Cluster::get_cache_mean(const int s_t, const int m_t) {
-   return caches[s_t].get_mixture(m_t).get_mean();
-}
-
-const float* Cluster::get_cache_var(const int s_t, const int m_t) {
-   return caches[s_t].get_mixture(m_t).get_var();
-}
-
-int Cluster::get_cache_weight(const int s_t, const int m_t) {
-   return caches[s_t].get_mixture(m_t).get_weight();
+const float* Cluster::get_cache_weights(const int s_t) {
+   return caches[s_t];
 }
 
 void Cluster::update_trans(vector<vector<float> > new_trans) {
@@ -127,18 +109,16 @@ void Cluster::append_member(Segment* data) {
    for(int i = 0; i < frame_num - 1; ++i) {
       int s_t = data -> get_hidden_states(i);
       int s_t_1 = data -> get_hidden_states(i + 1);
-      int m_t = data -> get_mixture_id(i);
       const float* frame_i = data -> get_frame_i_data(i);
       increase_trans(s_t, s_t_1);
-      increase_cache(s_t, m_t, frame_i);
+      increase_cache(s_t, frame_i);
    }
    // deal with the last frame
    int i = frame_num - 1;
    int s_t = data -> get_hidden_states(i);
-   int m_t = data -> get_mixture_id(i);
    const float* frame_i = data -> get_frame_i_data(i);
    increase_trans(s_t, state_num);
-   increase_cache(s_t, m_t, frame_i);
+   increase_cache(s_t, frame_i);
    ++member_num;
 }
 
@@ -147,18 +127,16 @@ void Cluster::remove_members(Segment* data) {
    for(int i = 0; i < frame_num - 1; ++i) {
       int s_t = data -> get_hidden_states(i);
       int s_t_1 = data -> get_hidden_states(i + 1);
-      int m_t = data -> get_mixture_id(i);
       const float* frame_i = data -> get_frame_i_data(i);
       decrease_trans(s_t, s_t_1);
-      decrease_cache(s_t, m_t, frame_i);
+      decrease_cache(s_t, frame_i);
    }
    // deal with the last frame
    int i = frame_num - 1;
    int s_t = data -> get_hidden_states(i);
-   int m_t = data -> get_mixture_id(i);
    const float* frame_i = data -> get_frame_i_data(i);
    decrease_trans(s_t, state_num);
-   decrease_cache(s_t, m_t, frame_i);
+   decrease_cache(s_t, frame_i);
    --member_num;
 }
 
@@ -270,7 +248,7 @@ double Cluster::compute_emission_likelihood(int state, \
    }
 }
 
-vector<double> Cluster::compute_gmm_mixture_posterior_weight(int state, \
+vector<double> Cluster::compute_posterior_weight(int state, \
                                             const float* data, int index) {
    if (precompute_status) {
       return emissions[state].compute_posterior_weight(index);
@@ -280,32 +258,12 @@ vector<double> Cluster::compute_gmm_mixture_posterior_weight(int state, \
    }
 }
 
-void Cluster::set_state_mixture_weight(const int s, \
-  const int m, const float w) {
-   emissions[s].set_mixture_weight(m, w);
-}
-
-void Cluster::set_state_mixture_det(const int s, \
-  const int m, const float det) {
-   emissions[s].set_mixture_det(m, det); 
-}
-
-void Cluster::set_state_mixture_mean(const int s, \
-  const int m, const float* mean) {
-   emissions[s].set_mixture_mean(m, mean);
-}
-
 void Cluster::set_trans(const float* s_trans) {
    for (int i = 0 ; i < state_num; ++i) {
       for (int j = 0 ; j < state_num + 1; ++j) {
          trans[i][j] = s_trans[i * (state_num + 1) + j];
       }
    }
-}
-
-void Cluster::set_state_mixture_var(const int s, \
-  const int m, const float* var) {
-   emissions[s].set_mixture_var(m, var);
 }
 
 float Cluster::get_state_trans_prob(int from, int to) const {
@@ -324,8 +282,6 @@ void Cluster::state_snapshot(const string& fn) {
    fout.write(reinterpret_cast<char*> (&member_len), sizeof(int));
    // write state number
    fout.write(reinterpret_cast<char*> (&state_num), sizeof(int));
-   // write mixture_num
-   fout.write(reinterpret_cast<char*> (&mixture_num), sizeof(int));
    // write vector_dim
    fout.write(reinterpret_cast<char*> (&vector_dim), sizeof(int));
    // write out trans info
@@ -336,18 +292,10 @@ void Cluster::state_snapshot(const string& fn) {
       }
    }
    fout.write(reinterpret_cast<char*> (copy_trans), sizeof(float) * state_num * (state_num + 1)); 
-   // write gmm's info
+   // write weights info
    for (int i = 0; i < state_num; ++i) {
-      for (int j = 0; j < mixture_num; ++j) {
-         float w_i = emissions[i].get_mixture(j).get_weight();
-         float det_i = emissions[i].get_mixture(j).get_det();
-         const float* mean_i = emissions[i].get_mixture(j).get_mean(); 
-         const float* var_i = emissions[i].get_mixture(j).get_var();
-         fout.write(reinterpret_cast<char*> (&w_i), sizeof(float)); 
-         fout.write(reinterpret_cast<char*> (&det_i), sizeof(float)); 
-         fout.write(reinterpret_cast<const char*> (mean_i), sizeof(float) * vector_dim);
-         fout.write(reinterpret_cast<const char*> (var_i), sizeof(float) * vector_dim);
-      }
+     const float* weights = emissions[i];
+     fout.write(reinterpret_cast<const char*> (weights_i), sizeof(float) * vector_dim);
    }
    // write out each member
    /*

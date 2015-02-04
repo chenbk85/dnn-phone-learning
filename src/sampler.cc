@@ -31,7 +31,6 @@
 #include "sampler.h"
 #include "segment.h"
 #include "cluster.h"
-#include "gmm.h"
 
 #define BRNG VSL_BRNG_MT19937 
 #define GAMMA_METHOD VSL_RNG_METHOD_GAMMA_GNORM
@@ -435,7 +434,7 @@ SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
      boundary_posterior_arr + 2);
    // sample the decision
    // for the picked one, add it to the list<Segment*>
-   // sample hidden states and mixture id
+   // sample hidden states 
    // append it to the cluster's member list.
    // delete the unused Segment*
    // set the boundary info to (*iter)
@@ -446,7 +445,7 @@ SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
 }
 
 Cluster* Sampler::sample_cluster_from_others(vector<Cluster*>& clusters) {
-   Cluster* new_cluster = new Cluster(state_num, mixture_num, dim);
+   Cluster* new_cluster = new Cluster(state_num, dim);
    vector<vector<float> > new_trans;
    vector<vector<float> > pseudo_trans;
    for (int i = 0; i < state_num; ++i) {
@@ -468,36 +467,22 @@ Cluster* Sampler::sample_cluster_from_others(vector<Cluster*>& clusters) {
    uni_class[clusters.size() - 1] = log(1 - subsurface);
    vector<double> posteriors(uni_class, uni_class + clusters.size());
    unsigned int c = sample_index_from_log_distribution(posteriors);
-   float random_unit = sample_from_unit();
-   float sign = random_unit >= 0.5 ? 1 : -1;
    for (int i = 0; i < state_num; ++i) {
-      Gmm new_state(mixture_num, dim);
-      for (int j = 0; j < mixture_num; ++j) {
-         float random_unit = sample_from_unit();
-         float sign = random_unit >= 0.5 ? 1 : -1;
-         const float* other_mean = \
-                (clusters[c] -> get_emission(i)).get_mixture(j).get_mean();
-         const float* other_var = \
-                (clusters[c] -> get_emission(i)).get_mixture(j).get_var();
-         const float other_weight = \
-                (clusters[c] -> get_emission(i)).get_mixture(j).get_weight();
-         float avg_mean = 0;
-         for (int d = 0; d < dim; ++d) {
-            avg_mean += other_mean[d];
-         }
-         avg_mean /= dim;
-         float new_mean[dim];
-         float new_var[dim];
-         for (int d = 0; d < dim; ++d) {
-            new_var[d] = 1.0;
-            new_mean[d] = other_mean[d] + annealing * sign * avg_mean;
-         }
-         new_state.get_mixture(j).update_mean(new_mean);
-         new_state.get_mixture(j).update_var(new_var);
-         new_state.get_mixture(j).update_det();
-         new_state.get_mixture(j).update_weight(other_weight);
-      }
-      new_cluster -> update_emission(new_state, i);
+     //randomly initialize
+     const float* other_weights = clusters[c] -> get_emission(i);
+     float avg_weight = 0;
+     for (int d = 0; d < dim; ++d) {
+       avg_weight += other_weights[d];
+     }
+     avg_weight /= dim;
+     float new_weights[dim];
+     float random_unit = sample_from_unit();
+     float sign = random_unit >= 0.5 ? 1 : -1;
+     for (int d = 0; d < dim; ++d) {
+       new_mean[d] = other_weights[d] + annealing * sign * avg_mean;
+     }
+     vector<float> new_state(new_weights);
+     new_cluster -> update_emission(new_state, i);
    }
    return new_cluster;
 }
@@ -559,7 +544,7 @@ Cluster* Sampler::sample_just_cluster(Segment& data, \
 }
 
 Cluster* Sampler::sample_cluster_from_base() {
-   Cluster* new_cluster = new Cluster(state_num, mixture_num, dim);
+   Cluster* new_cluster = new Cluster(state_num, dim);
    sample_hmm_parameters(*new_cluster);
    return new_cluster;
 }
@@ -579,7 +564,6 @@ void Sampler::sample_more_than_cluster(Segment& data, \
    }
    cout << endl;
    */
-   sample_mixture_id(data, picked_cluster);
    if (picked_cluster -> get_cluster_id() == -1) {
       picked_cluster -> set_cluster_id();
       clusters.push_back(picked_cluster);
@@ -648,29 +632,6 @@ float Sampler::sample_from_unit() {
       ran_num = storage.get_random_samples(UNIT);
    }
    return *ran_num;
-}
-
-void Sampler::sample_mixture_id(Segment& data, Cluster* model) {
-   const int frame_num = data.get_frame_num();
-   int* new_mixture_id = new int[frame_num];
-   if (mixture_num == 1) {
-      for (int i = 0; i < frame_num; ++i) {
-         new_mixture_id[i] = 0;
-      }
-   }
-   else {
-      for (int i = 0 ; i < frame_num; ++i) {
-         int s_t = data.get_hidden_states(i);
-         const float* const frame_i = data.get_frame_i_data(i);
-         int frame_i_index = data.get_frame_index(i) - offset;
-         vector<double> posterior = \
-               model -> compute_gmm_mixture_posterior_weight(\
-                 s_t, frame_i, frame_i_index);
-         new_mixture_id[i] = sample_index_from_log_distribution(posterior);
-      }
-   }
-   data.set_mixture_id(new_mixture_id);
-   delete[] new_mixture_id;
 }
 
 void Sampler::sample_pseudo_state_seq(Cluster* model, \
@@ -826,21 +787,11 @@ const float* Sampler::sample_from_gaussian(int index, \
                                       const float* new_var, \
                                       const float* mean_count, \
                                       const float weight_count) {
-   const float* prior_mean = gmm.get_mixture(index).get_mean();
    float* new_mean = new float[dim];
    for(int i = 0; i < dim; ++i) {
-      // normal_distribution(RealType mean = 0, RealType sd = 1);
-      float updated_mean = (norm_kappa * prior_mean[i] + mean_count[i]) \
-                            / (norm_kappa + weight_count);
-      float updated_kappa = norm_kappa + weight_count;
-      float std = sqrt( 1 / (new_var[i] * updated_kappa));
-      vsRngGaussian(GAUSSIAN_METHOD, \
-        stream, 1, new_mean + i, updated_mean, std);
-      /*
       float random_from_unit = sample_from_unit();
       normal_distribution<> dist(updated_mean, std);
       new_mean[i] = quantile(dist, random_from_unit);
-      */
    }
    return new_mean;
 }
@@ -867,26 +818,10 @@ const float* Sampler::sample_from_gamma(int index, \
                                    const float* mean_count, \
                                    const float weight_count ) {
    // prior
-   const float* gamma_rate = gmm.get_mixture(index).get_var(); 
-   const float* prior_mean = gmm.get_mixture(index).get_mean();
    float* new_var = new float[dim];
    // cout << "sampling for lamda" << endl;
    for (int i = 0; i < dim; ++i) {
-      float updated_gamma_rate = \
-        update_gamma_rate(gamma_rate[i], var_count[i], \
-                          mean_count[i], weight_count, \
-                          prior_mean[i]);
-      float updated_gamma_shape = gamma_shape + weight_count/2;
-      cout << i << " updated_gamma_rate: " << updated_gamma_rate << endl;
-      vsRngGamma(GAMMA_METHOD, stream, 1, new_var + i, \
-        updated_gamma_shape, 0, 1 / updated_gamma_rate);
-      /*
-      float random_from_unit = sample_from_unit();
-      gamma_distribution<> dist(updated_gamma_shape, 1 / updated_gamma_rate);
-      new_var[i] = quantile(dist, random_from_unit);
-      */
-      // To store precision instead of var
-      // new_var[i] = 1/new_var[i];
+     new_var[i] = 1.0;
    }
    return new_var;
 }
@@ -908,24 +843,6 @@ const float* Sampler::sample_from_gamma_for_multidim(const float* count, \
    return portion;
 }
 
-/*
-const float* Sampler::sample_from_gamma_for_weight(const float* count) {
-   int mixture_num = gmm.get_mixture_num();
-   float* weight = new float[mixture_num];
-   float total = 0.0;
-   // cout << "sampling for weight" << endl;
-   for (int i = 0; i < mixture_num; ++i) {
-      gamma_distribution<> dist(gamma_weight_alpha + count[i], 1);
-      float random_from_unit = sample_from_unit();
-      weight[i] = quantile(dist, random_from_unit);
-      total += weight[i]; 
-   }
-   for (int i = 0 ; i < mixture_num; ++i) {
-      weight[i] /= total;
-   }
-   return weight;
-}
-*/
 
 void Sampler::sample_trans(vector<vector<float> >& trans, \
                            vector<vector<float> >& pseudo_trans) {
@@ -1020,111 +937,16 @@ void Sampler::sample_hmm_parameters(Cluster& model) {
       // sample the trans matrix
       sample_trans(new_trans, pseudo_trans);
       // sample the gmms
-      float pseudo_vector[dim];
-      float pseudo_count[model.get_mixture_num()];
-      for (int i = 0; i < dim; ++i) {
-         pseudo_vector[i] = 0.0;
-      }
-      for (int i = 0; i < model.get_mixture_num(); ++i) {
-         pseudo_count[i] = 0.0;
-      }
       for(int i = 0; i < state_num; ++i) {
-         Gmm new_gmm;
-         new_gmm.init(model.get_mixture_num(), model.get_dim());
-         // sample the mixture
-         // sample the weight 
-         float weight_prior[model.get_mixture_num()];
-         for (int w = 0; w < model.get_mixture_num(); ++w) {
-            weight_prior[w] = gamma_weight_alpha;
-         }
-         const float* weight = sample_from_gamma_for_multidim( \
-           pseudo_count, model.get_mixture_num(), weight_prior);
-         for(int j = 0; j < model.get_mixture_num(); ++j) {
-            new_gmm.get_mixture(j).update_weight(log(weight[j]));
-            // sample the var vector
-            const float* new_var = storage.get_random_samples(PRE); 
-            // sample the mean vector
-            const float* new_mean = storage.get_random_samples(MEAN); 
-            new_gmm.get_mixture(j).update_mean(new_mean);
-            new_gmm.get_mixture(j).update_var(new_var);
-            new_gmm.get_mixture(j).update_det();
-            delete[] new_var;
-            delete[] new_mean;
-         }
-         delete[] weight;
-         model.update_emission(new_gmm, i);
+	vector<float> new_weights(model.get_dim());
+         model.update_emission(new_weights, i);
       }
    }
    // sample from poterior
    else {
       // pseudo_trans can be used to store counts of transition
       sample_trans(new_trans, model.get_cache_trans());
-      Gmm gmm_true_var[state_num];
-      for (int i = 0; i < state_num; ++i) {
-         gmm_true_var[i].init(model.get_mixture_num(), model.get_dim());
-      }
-      if (model.get_age() > 0) {
-         for (int i = 0; i < state_num; ++i) {
-            for (int j = 0; j < model.get_mixture_num(); ++j) {
-               float new_mean[model.get_dim()];
-               float new_var[model.get_dim()];
-               float n = model.get_cache_weight(i, j);
-               memcpy(new_var, model.get_cache_var(i, j), \
-                 sizeof(float) * model.get_dim());
-               memcpy(new_mean, model.get_cache_mean(i, j), \
-                  sizeof(float) * model.get_dim());
-               if (n > 50) {
-                  for (int d = 0; d < model.get_dim(); ++d) {
-                     new_mean[d] = new_mean[d] / n;
-                     new_var[d] = new_var[d] - n * new_mean[d] * new_mean[d]; 
-                     new_var[d] = (n - 1) / new_var[d];
-                  }
-               }
-               gmm_true_var[i].get_mixture(j).update_mean(new_mean);
-               gmm_true_var[i].get_mixture(j).update_var(new_var);
-            }
-         }
-      }
-      for(int i = 0; i < state_num; ++i) { 
-         Gmm new_gmm;
-         new_gmm.init(model.get_mixture_num(), model.get_dim());
-         float* weight_count = new float[model.get_mixture_num()];
-         for (int j = 0 ; j < model.get_mixture_num(); ++j) {
-            weight_count[j] = model.get_cache_weight(i, j);
-            const float* mean_count = model.get_cache_mean(i, j); 
-            const float* new_var;
-            if (model.get_age() > 0 && weight_count[j] > 50) {
-               new_var = gmm_true_var[i].get_mixture(j).get_var();
-               new_gmm.get_mixture(j).update_var(new_var);
-            }
-            else {
-               const float* var_count = model.get_cache_var(i, j); 
-               new_var = sample_from_gamma( \
-                  j, var_count, mean_count, weight_count[j]);
-               new_gmm.get_mixture(j).update_var(new_var);
-               delete[] new_var;
-            }
-            const float* new_mean = sample_from_gaussian( \
-              j, new_gmm.get_mixture(j).get_var(), \
-              mean_count, weight_count[j]);
-            // update mean and variance
-            new_gmm.get_mixture(j).update_mean(new_mean);
-            new_gmm.get_mixture(j).update_det();
-            delete[] new_mean;
-         }
-         float weight_prior[model.get_mixture_num()];
-         for (int w = 0; w < model.get_mixture_num(); ++w) {
-            weight_prior[w] = gamma_weight_alpha;
-         }
-         const float* new_weight = sample_from_gamma_for_multidim( \
-                     weight_count, model.get_mixture_num(), weight_prior);
-         for (int j = 0; j < model.get_mixture_num(); ++j) {
-            new_gmm.get_mixture(j).update_weight(log(new_weight[j]));
-         }
-         delete[] new_weight;
-         delete[] weight_count;
-         model.update_emission(new_gmm, i);
-      }
+      //model.update_emission(new_weights, i);
    }
    model.update_trans(new_trans);
 }
@@ -1149,7 +971,6 @@ double Sampler::get_dp_prior(Cluster* model) const {
 
 void Sampler::init_prior(const int s_dim, \
                          const int s_state, \
-                         const int s_mixture, \
                          const float s_dp_alpha, \
                          const float s_beta_alpha, \
                          const float s_beta_beta, \
@@ -1157,16 +978,12 @@ void Sampler::init_prior(const int s_dim, \
                          const float s_norm_kappa, \
                          const float s_gamma_weight_shape, \
                          const float s_gamma_trans_alpha, \
-                         Gmm s_gmm, \
                          const float s_h0) {
    dim = s_dim;
    state_num = s_state;
-   mixture_num = s_mixture;
    dp_alpha = s_dp_alpha;
    beta_alpha = s_beta_alpha;
    beta_beta = s_beta_beta;
-   gmm.init(mixture_num, dim);
-   gmm = s_gmm;
    // prior for boundaries
    boundary_prior.push_back(s_h0);
    float s_h1 = 1 - s_h0;
@@ -1177,20 +994,10 @@ void Sampler::init_prior(const int s_dim, \
    gamma_weight_alpha = s_gamma_weight_shape;
    gamma_trans_alpha = s_gamma_trans_alpha;
    norm_kappa = s_norm_kappa;
-   for (int i = 0; i < gmm.get_mixture_num(); ++i) {
-      const float* prior_var = gmm.get_mixture(i).get_var();
-      float* gamma_rate = new float[dim];
-      for (int j = 0; j < dim; ++j) {
-         gamma_rate[j] = gamma_shape / prior_var[j];
-      }
-      gmm.get_mixture(i).update_var(gamma_rate);
-      delete[] gamma_rate;
-   }
-   mixture_num = gmm.get_mixture_num(); 
    // generator.seed(static_cast<unsigned int>(time(0)));  
    unsigned int SEED = time(0);
    vslNewStream(&stream, BRNG,  SEED);
-   storage.init(dim, gamma_shape, norm_kappa, 1, gmm.get_mixture(0)); 
+   storage.init(dim, gamma_shape, norm_kappa, 1); 
 }
 
 Sampler::~Sampler() {
