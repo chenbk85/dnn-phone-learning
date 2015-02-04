@@ -6,7 +6,7 @@ CFLAGS = -c -Wall -O3 -fomit-frame-pointer -msse2 -mssse3
 # CFLAGS = -c -O3
 #CFLAGS = -c -xhost -parallel -O3 
 #CFLAGS = -c -Wall -g
-SOURCES = src/main.cc src/manager.cc src/sampler.cc src/sample_boundary_info.cc src/cluster.cc src/gmm.cc src/mixture.cc src/segment.cc src/bound.cc src/calculator.cc src/storage.cc
+SOURCES = src/main.cc src/manager.cc src/sampler.cc src/sample_boundary_info.cc src/cluster.cc src/segment.cc src/bound.cc src/calculator.cc src/storage.cc
 OBJECTS=$(SOURCES:.cc=.o)
 EXECUTABLE = bin/dnn-phone-learning
 #EXECUTABLE = gibbs-icpc
