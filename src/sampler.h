@@ -92,6 +92,7 @@ class Sampler {
       // Cluster* sample_from_hash_for_cluster(Segment*, vector<Cluster*>&);
       // get DP prior
       double get_dp_prior(Cluster*) const;
+      double get_non_dp_prior(Cluster*) const;
       bool hidden_state_valid_check(const int*, const int);
       ~Sampler();
    private:

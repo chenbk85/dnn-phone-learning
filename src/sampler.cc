@@ -502,13 +502,13 @@ Cluster* Sampler::sample_just_cluster(Segment& data, vector<Cluster*>& clusters)
    vector<double> posteriors(posterior_arr, posterior_arr + num_clusters + 1);
    int new_c = sample_index_from_log_distribution(posteriors);
    data.set_hash(calculator.sum_logs(posterior_arr, num_clusters + 1));
-   if ((unsigned int) new_c != clusters.size()) {
-      delete new_cluster;
-      return clusters[new_c];
-   }
-   else {
-      return new_cluster;
-   }
+   //if ((unsigned int) new_c != clusters.size()) {
+   //  delete new_cluster;
+   return clusters[new_c];
+   //}
+   //else {
+   //   return new_cluster;
+   //}
 }
 
 Cluster* Sampler::sample_cluster_from_base() {
@@ -520,7 +520,7 @@ Cluster* Sampler::sample_cluster_from_base() {
 void Sampler::sample_more_than_cluster(Segment& data, vector<Cluster*>& clusters, Cluster* picked_cluster) {
   // sample hidden_states for the data
   //sample_hidden_states(data, picked_cluster);
-  picked_cluster.run_vitterbi(data);
+  picked_cluster -> run_vitterbi(data);
 
   // shouldn't happen wihtout dp 
   if (picked_cluster -> get_cluster_id() == -1) {

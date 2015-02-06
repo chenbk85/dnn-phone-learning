@@ -49,9 +49,31 @@ double Calculator::sum_logs(vector<double> log_reg) {
    return (marginal_max + log(marginal_sum));
 }
 
+float Calculator::sum_logs(vector<float> log_reg) {
+   float marginal_max = find_log_max(log_reg);
+   float marginal_sum = 0;
+   vector<float>::iterator iter;
+   for (iter = log_reg.begin(); iter != log_reg.end(); ++iter) {
+      marginal_sum += exp((*iter) - marginal_max);
+   }
+   return (marginal_max + log(marginal_sum));
+}
+
 double Calculator::find_log_max(vector<double> log_reg){
    vector<double>::iterator iter = log_reg.begin();
    double max = *iter; 
+   iter++;
+   for (; iter != log_reg.end(); ++iter) { 
+      if (*iter > max) {
+         max = *iter;
+      }
+   }
+   return max;
+}
+
+float Calculator::find_log_max(vector<float> log_reg){
+   vector<float>::iterator iter = log_reg.begin();
+   float max = *iter; 
    iter++;
    for (; iter != log_reg.end(); ++iter) { 
       if (*iter > max) {

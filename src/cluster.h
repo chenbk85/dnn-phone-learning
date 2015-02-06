@@ -1,6 +1,6 @@
 /* -*- C++ -*-
  *
- * Copyright (c) 2014
+ * Copyrcight (c) 2014
  * Spoken Language Systems Group
  * MIT Computer Science and Artificial Intelligence Laboratory
  * Massachusetts Institute of Technology
@@ -43,7 +43,7 @@ class Cluster {
       int get_cluster_id() const;
       bool get_precompute_status() const {return precompute_status;}
       double compute_likelihood(const Segment&, const int);
-      double compute_emission_likelihood(int, const float*, const int);
+      double compute_emission_likelihood(int, const float*);
       vector<double> compute_posterior_weight(int, const float*, int);
       float get_state_trans_prob(int, int) const;
       int get_state_num() const { return state_num; }
@@ -53,6 +53,10 @@ class Cluster {
       void precompute(int, const float**);
       void set_precompute_status(const bool new_status);
   vector<float> get_emission(int index) {return emissions[index];} 
+  vector<vector<float> > compute_forward_prob(Segment&);
+  vector<vector<float> > compute_backward_prob(Segment&);
+  vector<vector<float> > compute_posterior(Segment&);
+  void run_vitterbi(Segment&);
       void state_snapshot(const string&); 
       void update_age() {++age;}
       void increase_trans(const int, const int);

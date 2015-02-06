@@ -25,8 +25,10 @@ class Calculator {
    public:
       Calculator();
       double sum_logs(vector<double>);
+      float sum_logs(vector<float>);
       double sum_logs(double*, int);
       double find_log_max(vector<double>);
+      float find_log_max(vector<float>);
       ~Calculator();
 };
 
