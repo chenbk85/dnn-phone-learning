@@ -13,6 +13,7 @@
  *   				      				                            * 
  *   Chia-ying (Jackie) Lee <chiaying@csail.mit.edu>				*
  *   Feb 2014							                            *
+ *  Updated by Jennifer Drexler, Feb 2015
 *********************************************************************/
 #include <iostream>
 #include <fstream>
@@ -112,201 +113,164 @@ string Manager::get_basename(string s) {
 
 bool Manager::load_bounds(const string& fnbound_list, const int g_size) {
    group_size = g_size;
+
+   // open bounds list file
    ifstream fbound_list(fnbound_list.c_str(), ifstream::in);
    if (!fbound_list.is_open()) {
       return false;
    }
    cout << "file opened" << endl;
+
    int input_counter = 0;
    string indexDir;
    string dataDir; 
-   //bool readDirs = false;
    while (fbound_list.good()) {
-     /*if(!readDirs){
-       fbound_list >> indexDir;
-       fbound_list >> dataDir;
-       cout << indexDir << endl;
-       cout << dataDir << endl;
-       cout << "Dirs read!!" << endl;
-       readDirs = true;
-       }
-
-     string fn;
-     fbound_list >> fn; 
-     cout << fn << endl;*/
      string fn_index;
      string fn_data;
-     fbound_list >> fn_index;
-     fbound_list >> fn_data;
+     fbound_list >> fn_index; // bounds file
+     fbound_list >> fn_data; // data file
 
      if (fn_index != "" && fn_data != "") {
-       //if(fn != ""){
          ++input_counter;
          ifstream findex(fn_index.c_str(), ifstream::in);
-	 //string fn_index = indexDir + "/" + fn + ".phn";
-	 //cout << fn_index << endl;
-	 //ifstream findex(fn_index.c_str(), ifstream::in);
          ifstream fdata(fn_data.c_str(), ifstream::binary);
-	 //string basename = fn.substr(0, fn.find('.')); 
-	 //string fn_data = dataDir + "/" + basename + "/" + fn + ".raw";
-	 //cout << fn_data << endl;
-	 //ifstream fdata(fn_data.c_str(), ifstream::binary);
-
          string basename = get_basename(fn_data);
 
-         vector<Bound*> a_seg;
          if (!findex.is_open()) {
             return false;
          }
          if (!fdata.is_open()) {
             return false;
          }
-         int start = 0;
-         int end = 0;
+
          cout << "Loading " << fn_index << "..." << endl;
          int total_frame_num;
          findex >> total_frame_num;
          cout << "total_frame_num: " << total_frame_num << endl;
-	 int bad = -1;
+
+         int start = 0;
+         int end = 0;
+         vector<Bound*> a_seg;
          while (end != total_frame_num - 1) {
-            findex >> start;
-            findex >> end;
-	    cout << "start: " << start << ", end: " << end << endl;
-            int frame_num = end - start + 1;
-            float** frame_data = new float*[frame_num];
-            for (int i = 0; i < frame_num; ++i) {
-               frame_data[i] = new float[s_dim];
-               fdata.read(reinterpret_cast<char*>(frame_data[i]), \
-                    sizeof(float) * s_dim);
-	      float data_max = 0;
-	      for(int j = 0; j < s_dim; j++){
-		if(abs(frame_data[i][j]) > data_max){
-		  data_max = abs(frame_data[i][j]);
-		}
-	      }
-	      cout << "frame: " << i << ", max: " << data_max << endl;
-	      if(data_max > 10000){
-		bad = i;
-		break;
-	      }
-            }
-	    cout << "frame 0,0:" << frame_data[0][0] << endl;
-	    cout << "frame 0,1:" << frame_data[0][1] << endl;
+	   // load one bound
+	   findex >> start;
+	   findex >> end;
 
-	    if(bad == 0){
-	      // find most recent bound and set utt_end, phn_end
-	      Bound* b = bounds[Bound::index_counter-1];
-	      b -> set_utt_end(true);
-	      if(!(b -> get_phn_end())){
-		b -> set_phn_end(true);
-		Segment* new_segment = new Segment(basename, a_seg);
-		++Segment::counter;
-		segments.push_back(new_segment);
-		Cluster* new_c = sampler.				\
-		  sample_just_cluster(*new_segment, clusters);
-		sampler.sample_more_than_cluster(*new_segment, clusters, new_c);
-		vector<Bound*>::iterator iter_members = a_seg.begin();
-		for(; iter_members != a_seg.end(); ++iter_members) {
-		  (*iter_members) -> set_parent(new_segment);
-		}
-		new_segment -> change_hash_status(false);
-		cout << Segment::counter << " segments..." << endl;
-		cout << Cluster::counter << " clusters..." << endl;
-		a_seg.clear();
-	      }
-	      break;
-	    }
-	    
-            bool utt_end = false;
-            if (end == total_frame_num - 1 || bad > 0) {
-               utt_end = true;
-            }
-	    if(bad > 0){
-	      end = start + bad - 1;
-	    }
+	   int frame_num = end - start + 1;
+	   float** frame_data = new float*[frame_num];
 
-            Bound* new_bound = new Bound(start, end, s_dim, utt_end);
-	    new_bound -> set_data(frame_data);
-            new_bound -> set_index(Bound::index_counter);
-            new_bound -> set_start_frame_index(Bound::total_frames);
-            ++Bound::index_counter;
-            Bound::total_frames += end - start + 1;
-	    cout <<  " a..." << endl;
-            for(int i = 0; i < frame_num; ++i) {
-	      if(bad > 0 && i > bad){
-		break;
-	      }
-	      delete[] frame_data[i];
-            }
-            delete[] frame_data;
+	   // read data for this bound
+	   for (int i = 0; i < frame_num; ++i) {
+	     frame_data[i] = new float[s_dim];
+	     fdata.read(reinterpret_cast<char*>(frame_data[i]), sizeof(float) * s_dim);
+	   }
+	   
+	   // if this is the last frame of the utterance
+	   bool utt_end = false;
+	   if (end == total_frame_num - 1) {
+	     utt_end = true;
+	   }
 
-	    cout <<  " b..." << endl;
-	    
-            if (frame_num) {
-               bounds.push_back(new_bound);
-               a_seg.push_back(new_bound);
-               // Sampler::sample_boundary(Bound*) is for sampling from prior
-               bool phn_end = sampler.sample_boundary(new_bound);
-               new_bound -> set_phn_end(phn_end);
-               if (phn_end) {
-                  Segment* new_segment = new Segment(basename, a_seg);
-                  ++Segment::counter;
-                  segments.push_back(new_segment);
-                  Cluster* new_c = sampler.\
-                           sample_just_cluster(*new_segment, clusters);
-                  sampler.sample_more_than_cluster(*new_segment, clusters, new_c);
-                  vector<Bound*>::iterator iter_members = a_seg.begin();
-                  for(; iter_members != a_seg.end(); ++iter_members) {
-                     (*iter_members) -> set_parent(new_segment);
-                  }
-                  new_segment -> change_hash_status(false);
-                  cout << Segment::counter << " segments..." << endl;
-                  cout << Cluster::counter << " clusters..." << endl;
-                  a_seg.clear();
-               }
-            }
-            else {
-               delete new_bound;
-               Bound::index_counter--;
-            }
+	   // create bound object
+	   Bound* new_bound = new Bound(start, end, s_dim, utt_end);
+	   new_bound -> set_index(Bound::index_counter);
+	   new_bound -> set_start_frame_index(Bound::total_frames);
+	   ++Bound::index_counter;
+	   Bound::total_frames += end - start + 1;
+
+	   // save data in object, then delete the temp arrays here
+	   new_bound -> set_data(frame_data);
+	   for(int i = 0; i < frame_num; ++i) {
+	     delete[] frame_data[i];
+	   }
+	   delete[] frame_data;
+
+	   // if the bound is not empty
+	   if (frame_num) {
+	     // add to lists (housekeeping)
+	     bounds.push_back(new_bound);
+	     a_seg.push_back(new_bound);
+
+	     // sample whether this should be a boundary, from prior
+	     bool phn_end = sampler.sample_boundary(new_bound);
+	     new_bound -> set_phn_end(phn_end);
+
+	     // if this is a boundary
+	     if (phn_end) {
+	       // create a new segment from list of bounds since the last segment
+	       Segment* new_segment = new Segment(basename, a_seg);
+	       vector<Bound*>::iterator iter_members = a_seg.begin();
+	       for(; iter_members != a_seg.end(); ++iter_members) {
+		 (*iter_members) -> set_parent(new_segment);
+	       }
+	       ++Segment::counter;
+	       segments.push_back(new_segment);
+
+	       // sample a cluster label for this segment
+	       Cluster* new_c = sampler.sample_just_cluster(*new_segment, clusters);
+	       // sample hidden states
+	       sampler.sample_more_than_cluster(*new_segment, clusters, new_c);
+
+	       new_segment -> change_hash_status(false);
+	       cout << Segment::counter << " segments..." << endl;
+	       cout << Cluster::counter << " clusters..." << endl;
+
+	       //empty list of bounds
+	       a_seg.clear();
+	     }
+	   }
+	   else {
+	     // if bound is empty, delete it
+	     delete new_bound;
+	     Bound::index_counter--;
+	   }
          }
-	 cout << "EOF" << endl;
+
+	 // we've finished reading the file - are there still bounds that we haven't added to a segment?
          if (a_seg.size()) {
-             cout << "Not cleaned" << endl;
-             Segment* new_segment = new Segment(basename, a_seg);
-             ++Segment::counter;
-             segments.push_back(new_segment);
-             Cluster* new_c = sampler.sample_just_cluster(*new_segment, clusters);
-             sampler.sample_more_than_cluster(*new_segment, clusters, new_c);
-             vector<Bound*>::iterator iter_members = a_seg.begin();
-             for(; iter_members != a_seg.end(); ++iter_members) {
-                (*iter_members) -> set_parent(new_segment);
-             }
-             cout << Segment::counter << " segments..." << endl;
-             cout << Cluster::counter << " clusters..." << endl;
-             a_seg.clear();
+	   Segment* new_segment = new Segment(basename, a_seg);
+	   vector<Bound*>::iterator iter_members = a_seg.begin();
+	   for(; iter_members != a_seg.end(); ++iter_members) {
+	     (*iter_members) -> set_parent(new_segment);
+	   }
+	   ++Segment::counter;
+	   segments.push_back(new_segment);
+
+	   // sample a cluster label for this segment
+	   Cluster* new_c = sampler.sample_just_cluster(*new_segment, clusters);
+	   // sample hidden states
+	   sampler.sample_more_than_cluster(*new_segment, clusters, new_c);
+
+	   cout << Segment::counter << " segments..." << endl;
+	   cout << Cluster::counter << " clusters..." << endl;
+	   a_seg.clear();
          }
+
+	 // get a pointer to the last bound added (i.e. the last bound in the file)
          vector<Bound*>::iterator to_last = bounds.end();
          to_last--;
          (*to_last) -> set_utt_end(true);
          (*to_last) -> set_phn_end(true);
+
+	 // close files
          findex.close();
          fdata.close();
-	 cout << "files closed" << endl;
+     }
+     cout << "input_counter: " << input_counter << endl;
+     
+     // is this just me, or does this make no sense? -- JD
+     if (!(input_counter % group_size) && fn_index != "" && fn_data != "") {
+       cout << "push_back" << endl;
+       batch_groups.push_back(bounds.size());
+       cout << input_counter << " and " << bounds.size() << endl;
       }
-      cout << "input_counter: " << input_counter << endl;
-      if (!(input_counter % group_size) && fn_index != "" && fn_data != "") {
-	//if (!(input_counter % group_size) && fn != "") {
-	cout << "push_back" << endl;
-         batch_groups.push_back(bounds.size());
-         cout << input_counter << " and " << bounds.size() << endl;
-      }
-      if (!(input_counter % 100)) {
-	cout << "update_clusters" << endl;
-         update_clusters(false, 0);   
-	cout << "update_clusters done" << endl;
+     if (!(input_counter % 100)) { 
+       cout << "update_clusters" << endl;
+       update_clusters(false, 0);  // - JD 
+       cout << "update_clusters done" << endl;
       }
    }
+   // what??? -- JD
    if (input_counter % group_size) {
       batch_groups.push_back(bounds.size());
       cout << input_counter << " and " << bounds.size() << endl;
