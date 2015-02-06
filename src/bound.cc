@@ -35,8 +35,14 @@ Bound::Bound(const Bound& source) {
    data = new float* [frame_num];
    for(int i = 0; i < frame_num; ++i) {
       data[i] = new float[dim];
-      const float* ptr = source.get_frame_i(i);
+      const float* ptr = source.get_frame_i_data(i);
       memcpy(data[i], ptr, sizeof(float) * dim);
+   }
+   likelihoods = new float* [frame_num];
+   for(int i = 0; i < frame_num; ++i) {
+      likelihoods[i] = new float[dim];
+      const float* ptr = source.get_frame_i_likelihoods(i);
+      memcpy(likelihoods[i], ptr, sizeof(float) * dim);
    }
    parent = source.get_parent();
 }
@@ -48,8 +54,10 @@ const Bound& Bound::operator= (const Bound& source) {
    else {
       for(int i = 0; i < frame_num; ++i) {
          delete[] data[i];
+         delete[] likelihoods[i];
       }
       delete[] data;
+      delete[] likelihoods;
    }
    index = source.get_index();
    frame_num = source.get_frame_num();
@@ -63,8 +71,15 @@ const Bound& Bound::operator= (const Bound& source) {
    data = new float* [frame_num];
    for(int i = 0; i < frame_num; ++i) {
       data[i] = new float[dim];
-      const float* ptr = source.get_frame_i(i);
+      const float* ptr = source.get_frame_i_data(i);
       memcpy(data[i], ptr, sizeof(float) * dim);
+   }
+
+   likelihoods = new float* [frame_num];
+   for(int i = 0; i < frame_num; ++i) {
+      likelihoods[i] = new float[dim];
+      const float* ptr = source.get_frame_i_likelihoods(i);
+      memcpy(likelihoods[i], ptr, sizeof(float) * dim);
    }
    return *this;
 }
@@ -83,6 +98,10 @@ Bound::Bound(int start, int end, int d, \
    for(int i = 0; i < frame_num; ++i) {
       data[i] = new float[dim];
    }
+   likelihoods = new float*[frame_num];
+   for(int i = 0; i < frame_num; ++i) {
+      likelihoods[i] = new float[dim];
+   }
 }
 
 void Bound::set_phn_end(bool s) {
@@ -96,6 +115,12 @@ void Bound::set_utt_end(bool s) {
 void Bound::set_data(float** source) { 
    for(int i = 0; i < frame_num; ++i) {
       memcpy(data[i], source[i], sizeof(float) * dim);
+   }
+}
+
+void Bound::set_likelihoods(float** source) { 
+   for(int i = 0; i < frame_num; ++i) {
+      memcpy(likelihoods[i], source[i], sizeof(float) * dim);
    }
 }
 
@@ -123,6 +148,8 @@ void Bound::show_data() {
 Bound::~Bound() {
    for(int i = 0; i < frame_num; ++i) {
       delete[] data[i];
+      delete[] likelihoods[i];
    }
    delete[] data;
+   delete[] likelihoods[i];
 }

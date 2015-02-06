@@ -34,6 +34,7 @@ Segment::Segment(string tag_name, vector<Bound*> mem) {
    tag = tag_name;
    members = mem;
    set_frame_data();
+   set_frame_likelihoods();
    set_frame_num();
    set_start_frame();
    set_start_frame_index();
@@ -59,8 +60,11 @@ const Segment& Segment::operator= (const Segment& source) {
    cluster_id = source.get_cluster_id();
    frame_num = source.get_frame_num();
    dimension = source.get_dimension();
-   hidden_states = new int [frame_num];
+
    frame_data = source.get_frame_data(); 
+   frame_likelihoods = source.get_frame_likelihoods(); 
+
+   hidden_states = new int [frame_num];
    memcpy(hidden_states, source.get_hidden_states_all(), \
      sizeof(int) * frame_num);
    hashed = source.is_hashed();
@@ -76,6 +80,7 @@ Segment::Segment(const Segment& source) {
    frame_num = source.get_frame_num();
    dimension = source.get_dimension();
    frame_data = source.get_frame_data(); 
+   frame_likelihoods = source.get_frame_likelihoods(); 
    members = source.get_members();
    set_start_frame_index();
    set_member_parent();
@@ -138,7 +143,18 @@ void Segment::set_frame_data() {
    for(iter = members.begin(); iter != members.end(); ++iter) {
       int mem_len = (*iter) -> get_frame_num();
       for (int i = 0; i < mem_len; ++i) {
-         frame_data.push_back((*iter) -> get_frame_i(i));
+         frame_data.push_back((*iter) -> get_frame_i_data(i));
+      }
+   }
+}
+
+// To set feature values
+void Segment::set_frame_likelihoods() {
+   vector<Bound*>::iterator iter;
+   for(iter = members.begin(); iter != members.end(); ++iter) {
+      int mem_len = (*iter) -> get_frame_num();
+      for (int i = 0; i < mem_len; ++i) {
+         frame_likelihoods.push_back((*iter) -> get_frame_i_likelihoods(i));
       }
    }
 }
@@ -146,6 +162,11 @@ void Segment::set_frame_data() {
 // get frame_i
 const float* Segment::get_frame_i_data(int index) const {
    return frame_data[index];
+}
+
+// get frame_i
+const float* Segment::get_frame_i_likelihoods(int index) const {
+   return frame_likelihoods[index];
 }
 
 // To set hidden_states

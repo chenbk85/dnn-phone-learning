@@ -28,6 +28,7 @@ class Bound {
       Bound(const Bound&);
       const Bound& operator= (const Bound&);
       void set_data(float**);
+      void set_likelihoods(float**);
       void set_index(int);
       void set_parent(Segment*);
       void set_phn_end(bool);
@@ -41,13 +42,15 @@ class Bound {
       int get_start_frame_index() const {return start_frame_index;}
       bool get_utt_end() const {return utt_end;}
       bool get_phn_end() const {return phn_end;}
-      const float* get_frame_i(int i) const {return data[i];}
+      const float* get_frame_i_data(int i) const {return data[i];}
+      const float* get_frame_i_likelihoods(int i) const {return likelihoods[i];}
       Segment* get_parent() const {return parent;}
       void show_data(); 
       ~Bound();
    private:
       int index;
       float** data;
+      float** likelihoods;
       int frame_num;
       int start_frame;
       int start_frame_index;
