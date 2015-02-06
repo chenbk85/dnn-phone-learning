@@ -31,7 +31,6 @@ Cluster::Cluster(int s_num, int v_dim) {
    state_num = s_num;
    vector_dim = v_dim;
    member_num = 0;
-   precompute_status = false;
    // trans = new float[state_num];
    for (int i = 0; i < state_num; ++i) {
       vector<float> state_trans;
@@ -48,11 +47,6 @@ Cluster::Cluster(int s_num, int v_dim) {
       cache_trans.push_back(state_trans);
    }
    id = -1;
-   for(int i = 0; i < state_num; ++i) {
-     vector<float> prototype(vector_dim); 
-      emissions.push_back(prototype);
-      cache.push_back(prototype);
-   }
    age = 0;
 }
 
@@ -84,20 +78,8 @@ void Cluster::decrease_trans(const int i, const int j) {
    --cache_trans[i][j];
 }
 
-void Cluster::increase_cache(const int s_t, const float* data) {
-  //cache[s_t] += data;
-}
-
-void Cluster::decrease_cache(const int s_t,  const float* data) {
-  //cache[s_t] -= data;
-}
-
 void Cluster::update_emission(vector<float> weights, int index) {
    emissions[index] = weights;
-}
-
-const vector<float> Cluster::get_cache_weights(const int s_t) {
-   return cache[s_t];
 }
 
 void Cluster::update_trans(vector<vector<float> > new_trans) {
@@ -109,16 +91,12 @@ void Cluster::append_member(Segment* data) {
    for(int i = 0; i < frame_num - 1; ++i) {
       int s_t = data -> get_hidden_states(i);
       int s_t_1 = data -> get_hidden_states(i + 1);
-      const float* frame_i = data -> get_frame_i_data(i);
       increase_trans(s_t, s_t_1);
-      increase_cache(s_t, frame_i);
    }
    // deal with the last frame
    int i = frame_num - 1;
    int s_t = data -> get_hidden_states(i);
-   const float* frame_i = data -> get_frame_i_data(i);
    increase_trans(s_t, state_num);
-   increase_cache(s_t, frame_i);
    ++member_num;
 }
 
@@ -127,24 +105,13 @@ void Cluster::remove_members(Segment* data) {
    for(int i = 0; i < frame_num - 1; ++i) {
       int s_t = data -> get_hidden_states(i);
       int s_t_1 = data -> get_hidden_states(i + 1);
-      const float* frame_i = data -> get_frame_i_data(i);
       decrease_trans(s_t, s_t_1);
-      decrease_cache(s_t, frame_i);
    }
    // deal with the last frame
    int i = frame_num - 1;
    int s_t = data -> get_hidden_states(i);
-   const float* frame_i = data -> get_frame_i_data(i);
    decrease_trans(s_t, state_num);
-   decrease_cache(s_t, frame_i);
    --member_num;
-}
-
-void Cluster::set_precompute_status(const bool new_status) {
-   precompute_status = new_status;
-   for (int i = 0; i < state_num; ++i) {
-     //emissions[i].set_precompute_status(new_status);
-   }
 }
 
 void Cluster::set_cluster_id(int s_id) {
@@ -174,12 +141,12 @@ double Cluster::compute_likelihood(const Segment& data, const int offset){
    }
    
    // frame 0, state 0 (fixed)
-   pre_scores[0] = compute_emission_likelihood(0, data.get_frame_i_data(0));
+   pre_scores[0] = compute_emission_likelihood(0, data.get_frame_i_likelihoods(0));
    if (data.get_frame_num() > 1) {
      // frame 1, all states (coming from state 0)
      for (int cur_state = 0; cur_state < state_num; ++cur_state) {
-       double prob_emit = compute_emission_likelihood(cur_state, data.get_frame_i_data(1));
-       cur_scores[cur_state] = pre_scores[0] + prob_emit; 
+       double prob_emit = compute_emission_likelihood(cur_state, data.get_frame_i_likelihoods(1));
+       cur_scores[cur_state] = pre_scores[0] + prob_emit + trans[0][curr_state]; 
      }
 
      // pre_scores are now frame 1
@@ -190,18 +157,13 @@ double Cluster::compute_likelihood(const Segment& data, const int offset){
       for (int i = 2; i < data.get_frame_num(); ++i) {
 	// next frame, all states
 	for (int cur_state = 0; cur_state < state_num; ++cur_state) {
-	  cur_scores[cur_state] = 0.0;
-	  double prob_emit_i = compute_emission_likelihood(cur_state, data.get_frame_i_data(i));
-	  if (cur_state == 0) {
-	    // state 0 has to come from state 0
-	    cur_scores[cur_state] = pre_scores[0];
+	  for(int pre_state = 0; pre_state <= curr_state; pre_state++){
+	    pre_scores[pre_state] += trans[pre_state][curr_state];
 	  }
-	  else {
-	    // states 1 could come from 0 or 1, state 2 could come from any state
-	    cur_scores[cur_state] = calculator.sum_logs(pre_scores, cur_state + 1);
-	  }
+	  cur_scores[cur_state] = calculator.sum_logs(pre_scores, cur_state + 1);
+	  double prob_emit_i = compute_emission_likelihood(cur_state, data.get_frame_i_likelihoods(i));
 	  cur_scores[cur_state] += prob_emit_i;
-         }
+	}
 	// update pre_scores
 	for (int j = 0; j < state_num; ++j ) {
 	  pre_scores[j] = cur_scores[j];
@@ -217,29 +179,12 @@ double Cluster::compute_likelihood(const Segment& data, const int offset){
    }
 }
 
-void Cluster::precompute(int total, const float** data) {
-   for(int i = 0; i < state_num; ++i) {
-     //emissions[i].precompute(total, data);
-   }
-}
-
 // Compute P(x|Guassian) 
-double Cluster::compute_emission_likelihood(int state, const float* data) {
-  // for now, assuming data = likelihoods and that P(state) is uniform
-  //return data[nClusters*state + cluster_id];
-  return data[state]; // this should be something else! --JD
-}
-
-vector<double> Cluster::compute_posterior_weight(int state, \
-                                            const float* data, int index) {
-
-  vector<double> d;
-   if (precompute_status) {
-     return d; //emissions[state].compute_posterior_weight(index);
-   }
-   else {
-     return d; //emissions[state].compute_posterior_weight(data);
-   }
+double Cluster::compute_emission_likelihood(int state, const float* likelihoods) {
+  // likelihoods = P(state|data) = P(data|state)*P(state)/P(data)
+  // P(data) is the same for all computations, so doesn't matter
+  // assuming for now that P(state) also doesn't matter (i.e. is uniform), which gives P(state|data) ~ P(data|state)
+  return likelihoods[counter*state + id]; //NOTE: this has to change with DP 
 }
 
 vector<vector<float> > Cluster::compute_forward_prob(Segment& data) {

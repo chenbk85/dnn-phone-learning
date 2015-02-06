@@ -17,6 +17,7 @@
 #include <iostream>
 #include <cstring>
 #include "bound.h"
+#include "cluster.h"
 
 using namespace std;
 
@@ -40,9 +41,9 @@ Bound::Bound(const Bound& source) {
    }
    likelihoods = new float* [frame_num];
    for(int i = 0; i < frame_num; ++i) {
-      likelihoods[i] = new float[dim];
+      likelihoods[i] = new float[Cluster::counter];
       const float* ptr = source.get_frame_i_likelihoods(i);
-      memcpy(likelihoods[i], ptr, sizeof(float) * dim);
+      memcpy(likelihoods[i], ptr, sizeof(float) * Cluster::counter);
    }
    parent = source.get_parent();
 }
@@ -77,9 +78,9 @@ const Bound& Bound::operator= (const Bound& source) {
 
    likelihoods = new float* [frame_num];
    for(int i = 0; i < frame_num; ++i) {
-      likelihoods[i] = new float[dim];
+      likelihoods[i] = new float[Cluster::counter];
       const float* ptr = source.get_frame_i_likelihoods(i);
-      memcpy(likelihoods[i], ptr, sizeof(float) * dim);
+      memcpy(likelihoods[i], ptr, sizeof(float) * Cluster::counter);
    }
    return *this;
 }
@@ -100,7 +101,7 @@ Bound::Bound(int start, int end, int d, \
    }
    likelihoods = new float*[frame_num];
    for(int i = 0; i < frame_num; ++i) {
-      likelihoods[i] = new float[dim];
+      likelihoods[i] = new float[Cluster::counter];
    }
 }
 
@@ -120,7 +121,7 @@ void Bound::set_data(float** source) {
 
 void Bound::set_likelihoods(float** source) { 
    for(int i = 0; i < frame_num; ++i) {
-      memcpy(likelihoods[i], source[i], sizeof(float) * dim);
+      memcpy(likelihoods[i], source[i], sizeof(float) * Cluster::counter);
    }
 }
 
@@ -151,5 +152,5 @@ Bound::~Bound() {
       delete[] likelihoods[i];
    }
    delete[] data;
-   delete[] likelihoods[i];
+   delete[] likelihoods;
 }
