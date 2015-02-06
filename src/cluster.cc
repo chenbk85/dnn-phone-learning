@@ -55,10 +55,6 @@ void Cluster::init(const int s_state_num, \
    state_num = s_state_num;
    vector_dim = s_vector_dim;
    for (int i = 0 ; i < state_num; ++i) {
-     vector<float> new_weights(vector_dim); 
-      emissions.push_back(new_weights);
-   }
-   for (int i = 0 ; i < state_num; ++i) {
       vector<float> inner_trans;
       for (int j = 0 ; j < state_num + 1; ++j) {
          inner_trans.push_back(0);
@@ -76,10 +72,6 @@ void Cluster::increase_trans(const int i, const int j) {
 
 void Cluster::decrease_trans(const int i, const int j) {
    --cache_trans[i][j];
-}
-
-void Cluster::update_emission(vector<float> weights, int index) {
-   emissions[index] = weights;
 }
 
 void Cluster::update_trans(vector<vector<float> > new_trans) {
@@ -132,7 +124,7 @@ int Cluster::get_cluster_id() const {
 }
 
 // Compute P(d|HMM)
-double Cluster::compute_likelihood(const Segment& data, const int offset){
+double Cluster::compute_likelihood(const Segment& data){
    double cur_scores[state_num];
    double pre_scores[state_num];
    for (int i = 0; i < state_num; ++i) {
@@ -361,11 +353,6 @@ void Cluster::state_snapshot(const string& fn) {
       }
    }
    fout.write(reinterpret_cast<char*> (copy_trans), sizeof(float) * state_num * (state_num + 1)); 
-   // write weights info
-   for (int i = 0; i < state_num; ++i) {
-     //vector<float> weights_i = emissions[i];
-     //fout.write(reinterpret_cast<const char*> (weights_i), sizeof(float) * vector_dim);
-   }
    // write out each member
    /*
    vector<Segment*>::iterator iter_segments;

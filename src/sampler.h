@@ -58,12 +58,8 @@ class Sampler {
       void sample_more_than_cluster(Segment&, \
               vector<Cluster*>&, Cluster*);
       Cluster* sample_just_cluster(Segment&, vector<Cluster*>&);
-      Cluster* sample_cluster_from_others(vector<Cluster*>&);
-      // sample the hidden state squence
-      void sample_hidden_states(Segment&, Cluster*);
       // sample cluster parameters
       void sample_hmm_parameters(Cluster&);
-      void sample_pseudo_state_seq(Cluster*, int*, int);
       int sample_index_from_log_distribution(vector<double>);
       int sample_index_from_distribution(vector<double>);
       bool decluster(Segment*, vector<Cluster*>&);
@@ -72,13 +68,8 @@ class Sampler {
       bool sample_boundary(vector<Bound*>::iterator, \
         list<Segment*>&, vector<Cluster*>&);
       void encluster(Segment&, vector<Cluster*>&, Cluster*);
-      // sample from beta distribution
-      float sample_from_beta(const int*);
       // sample from unit distribution
       float sample_from_unit();
-      // sample from a gaussian
-      const float* sample_from_gaussian(int, const float*, \
-        const float*, const float);
       // sample from a diagonal covariance 
       const float* sample_from_gamma(int, const float*, \
         const float*, const float);
@@ -86,14 +77,10 @@ class Sampler {
       // const float* sample_from_gamma_for_weight(const float*);
       const float* sample_from_gamma_for_multidim(const float*, int, float*);
       void sample_trans(vector<vector<float> >&, vector<vector<float> >&);
-      void set_precompute_status(Cluster*, const bool);
-      void precompute(Cluster*, int, const float**);
       Cluster* sample_cluster_from_base();
       // Cluster* sample_from_hash_for_cluster(Segment*, vector<Cluster*>&);
       // get DP prior
-      double get_dp_prior(Cluster*) const;
       double get_non_dp_prior(Cluster*) const;
-      bool hidden_state_valid_check(const int*, const int);
       ~Sampler();
    private:
       int dim; 

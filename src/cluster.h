@@ -34,21 +34,19 @@ class Cluster {
       // transition prob
       void init(const int, const int);
       void update_trans(vector<vector<float> >);
-  void update_emission(vector<float>, int);
       void append_member(Segment*);
       void remove_members(Segment*);
       void set_cluster_id();
       void set_cluster_id(int);
       int get_member_num() const;
       int get_cluster_id() const;
-      double compute_likelihood(const Segment&, const int);
+      double compute_likelihood(const Segment&);
       double compute_emission_likelihood(int, const float*);
       float get_state_trans_prob(int, int) const;
       int get_state_num() const { return state_num; }
       int get_dim() const { return vector_dim;}
       // list<Segment*>& get_members() { return members; }
       void show_member_len();
-  vector<float> get_emission(int index) {return emissions[index];} 
   vector<vector<float> > compute_forward_prob(Segment&);
   vector<vector<float> > compute_backward_prob(Segment&);
   vector<vector<float> > compute_posterior(Segment&);
@@ -71,7 +69,6 @@ class Cluster {
       int member_num;
       vector<vector<float> > trans;
       vector<vector<float> > cache_trans;
-  vector<vector<float> > emissions; 
       // Store segments that belong to this cluster.
       // Utilities
       Calculator calculator;
