@@ -315,35 +315,6 @@ void Sampler::is_not_boundary(Segment* h1_l, Segment* h1_r, \
    delete h1_r;
 }
 
-/*
-Cluster* Sampler::sample_from_hash_for_cluster(Segment* data, \
-                                   vector<Cluster*>& clusters) {
-   vector<double> posteriors = data -> get_hash(); 
-   posteriors.pop_back();
-   Cluster* new_cluster = sample_cluster_from_base(); 
-   double prior, likelihood;
-   prior = get_dp_prior(new_cluster);
-   likelihood = new_cluster -> compute_likelihood(*data);
-   posteriors.push_back(prior + likelihood);
-   if (posteriors.size() != clusters.size() + 1) {
-      cout << posteriors.size() << " " << clusters.size() << endl;
-      cout << data -> get_tag() << " " << data -> get_start_frame() << " " << data -> get_end_frame() << endl;
-      cout << "member length " << (data -> get_members()).size() << endl;
-      cout << "Size mismatch between cluster and posteriors." << endl;
-   }
-   int new_c = sample_index_from_log_distribution(posteriors);
-   data -> set_hash(posteriors[new_c]);
-   data -> change_hash_status(true); 
-   if ((unsigned int) new_c != clusters.size()) {
-      delete new_cluster;
-      return clusters[new_c];
-   }
-   else {
-      return new_cluster;
-   }
-}
-*/
-
 SampleBoundInfo Sampler::sample_h0_h1(Segment* h0, \
                  Segment* h1_l, Segment* h1_r, \
                  vector<Cluster*>& clusters) {
@@ -486,50 +457,48 @@ Cluster* Sampler::sample_cluster_from_others(vector<Cluster*>& clusters) {
    return new_cluster;
 }
 
-Cluster* Sampler::sample_just_cluster(Segment& data, \
-                                          vector<Cluster*>& clusters){
+Cluster* Sampler::sample_just_cluster(Segment& data, vector<Cluster*>& clusters){
    double prior = 0.0;
    double likelihood = 0.0;
    int num_clusters = clusters.size();
    double posterior_arr[num_clusters + 1];
-   // Compute poterior P(c|data, clusters);
+
+   // Compute posterior P(c|data, clusters) for each cluster
+   // Original formulation: P(c|data, clusters) ~ P(data|c)P(c|clusters)
+   // DO I NEED P(c|clusters) ANYWHERE OR DO I ALREADY HAVE THE RIGHT ANSWER???
    for(int i = 0; i < num_clusters; ++i) {
-      prior = get_dp_prior(clusters[i]);
-      likelihood = clusters[i] -> compute_likelihood(data, offset);
-      if(isnan(likelihood)){
-	cout << "****" << endl;
-	likelihood = -1e20;
-      }
-      if(!isnormal(likelihood)){
-	cout << "****" << endl;
-	likelihood = -1e20;
-      }
-      cout << clusters[i] -> get_cluster_id() << ", prior: " << prior << ", likelihood: " << likelihood << endl;
-      posterior_arr[i] = prior + likelihood;
+     // P(c|clusters)
+     //prior = get_dp_prior(clusters[i]);
+     prior = get_non_dp_prior(clusters[i]);
+     // P(data|c)
+     likelihood = clusters[i] -> compute_likelihood(data, offset); // need to fix this -- JD
+     posterior_arr[i] = prior + likelihood;
    }
-   // Sample one cluster to approximate the infinite integral
-   Cluster* new_cluster;
-   // new_cluster = sample_cluster_from_base();
-   if (clusters.size() == 0) {
-      new_cluster = sample_cluster_from_base();
-   }
-   else {
-      if (Sampler::annealing != 10.1) {
+
+   // left over from DP
+   if(0){
+     // Sample one cluster to approximate the infinite integral
+     Cluster* new_cluster;
+     if (clusters.size() == 0) {
+       new_cluster = sample_cluster_from_base();
+     }
+     else {
+       if (Sampler::annealing != 10.1) {
          new_cluster = sample_cluster_from_others(clusters);
-      }
-      else {
+       }
+       else {
          new_cluster = sample_cluster_from_base();
-      }
+       }
+     }
+
+     prior = get_dp_prior(new_cluster);
+     likelihood = new_cluster -> compute_likelihood(data, offset);
+     posterior_arr[num_clusters] = prior + likelihood;
    }
-   // new_cluster = sample_cluster_from_base();
-   prior = get_dp_prior(new_cluster);
-   likelihood = new_cluster -> compute_likelihood(data, offset);
-   if(isnan(likelihood)){
-     cout << "****" << endl;
-     likelihood = -1e20;
+   else{
+     posterior_arr[num_clusters] = -100000000000000;
    }
-   cout << "NEW, prior: " << prior << ", likelihood: " << likelihood << endl;
-   posterior_arr[num_clusters] = prior + likelihood;
+
    vector<double> posteriors(posterior_arr, posterior_arr + num_clusters + 1);
    int new_c = sample_index_from_log_distribution(posteriors);
    data.set_hash(calculator.sum_logs(posterior_arr, num_clusters + 1));
@@ -548,28 +517,23 @@ Cluster* Sampler::sample_cluster_from_base() {
    return new_cluster;
 }
 
+void Sampler::sample_more_than_cluster(Segment& data, vector<Cluster*>& clusters, Cluster* picked_cluster) {
+  // sample hidden_states for the data
+  //sample_hidden_states(data, picked_cluster);
+  picked_cluster.run_vitterbi(data);
 
-void Sampler::sample_more_than_cluster(Segment& data, \
-                             vector<Cluster*>& clusters, \
-                             Cluster* picked_cluster) {
-   // Update the cluster id for the data
-   // sample hidden_states for the data
-   // sample misture id for the data
-   // append data to the cluster
-   sample_hidden_states(data, picked_cluster);
-   /*
-   for (int i = 0; i < data.get_frame_num(); ++i) {
-      cout << data.get_hidden_states(i) << " ";
-   }
-   cout << endl;
-   */
-   if (picked_cluster -> get_cluster_id() == -1) {
-      picked_cluster -> set_cluster_id();
-      clusters.push_back(picked_cluster);
-      Cluster::counter++;
-   }
+  // shouldn't happen wihtout dp 
+  if (picked_cluster -> get_cluster_id() == -1) {
+    picked_cluster -> set_cluster_id();
+    clusters.push_back(picked_cluster);
+    Cluster::counter++;
+  }
+  // update cluster ID
    data.set_cluster_id(picked_cluster -> get_cluster_id());
+
+   // add data to cluster -- JD
    picked_cluster -> append_member(&data);
+
    data.change_hash_status(true);
 }
 
@@ -681,55 +645,52 @@ bool Sampler::hidden_state_valid_check(const int* states,
 
 // the sequence must start with state 0 and end at (state_num - 1)
 void Sampler::sample_hidden_states(Segment& data, Cluster* model) {
+
    const int frame_num = data.get_frame_num();
    int* new_hidden_states = new int[frame_num];
    new_hidden_states[0] = 0;
-   // sample hidden states from posterior
+
+   // sample from posterior
    if (data.get_cluster_id() != -1) {
-      bool resample = true;
-      int trial_num = 0;
-      while (resample && trial_num < 5) {
-         for(int i = 1; i < frame_num - 1; ++i) {
-            if (new_hidden_states[i - 1] == state_num - 1) {
-               new_hidden_states[i] = state_num - 1;
-            }
-            else {
-               // every computed item is in log
-               vector<double> posteriors;
-               double likelihood = 0.0;
-               double prior = 0.0;
-               int s_t_1 = new_hidden_states[i - 1];
-               if (!SKIP) {
-                  for(int s_t = s_t_1; s_t <= s_t_1 + 1 && s_t < state_num; \
-                  ++s_t) {
-                     prior = model -> get_state_trans_prob(s_t_1, s_t);
-                     likelihood = model -> \
-                        compute_emission_likelihood(\
-                          s_t, data.get_frame_i_data(i), \
-                           data.get_frame_index(i) - offset);
-                     posteriors.push_back(likelihood + prior);
-                  }
-                  new_hidden_states[i] = \
-                     sample_index_from_log_distribution(posteriors) + s_t_1;
-               }
-               else {
-                  for(int s_t = s_t_1; s_t < state_num; ++s_t) {
-                     prior = model -> get_state_trans_prob(s_t_1, s_t);
-                     likelihood = model -> \
-                        compute_emission_likelihood(\
-                          s_t, data.get_frame_i_data(i), \
-                           data.get_frame_index(i) - offset);
-                     posteriors.push_back(likelihood + prior);
-                     // posteriors.push_back(likelihood);
-                  }
-                  new_hidden_states[i] = \
-                     sample_index_from_log_distribution(posteriors) + s_t_1;
-               }
-            }
-         }
-         ++trial_num;
-         // resample = hidden_state_valid_check(new_hidden_states, frame_num);
-         resample = false;
+     bool resample = true;
+     int trial_num = 0;
+    
+     while (resample && trial_num < 5) {
+       for(int i = 1; i < frame_num - 1; ++i) {
+	 // if the previous frame was assigned to state 2, we're done with this frame
+	 if (new_hidden_states[i - 1] == state_num - 1) {
+	   new_hidden_states[i] = state_num - 1;
+	 }
+	 else { // otherwise
+	   vector<double> posteriors;
+	   double likelihood = 0.0;
+	   double prior = 0.0;
+	   
+	   // state assigned to previous frame
+	   int s_t_1 = new_hidden_states[i - 1];
+	   if (!SKIP) { // can't transition from 0 to 2
+	     for(int s_t = s_t_1; s_t <= s_t_1 + 1 && s_t < state_num; ++s_t) {
+	       // probability of transitioning to s_t from s_t_1 and emitting frame i
+	       prior = model -> get_state_trans_prob(s_t_1, s_t);
+	       likelihood = model -> compute_emission_likelihood(s_t, data.get_frame_i_data(i));
+	       posteriors.push_back(likelihood + prior);
+	     }
+	     new_hidden_states[i] = sample_index_from_log_distribution(posteriors) + s_t_1;
+	   }
+	   else { // can transition from 0 to 2
+	     for(int s_t = s_t_1; s_t < state_num; ++s_t) {
+	       // probability of transitioning to s_t from s_t_1 and emitting frame i
+	       prior = model -> get_state_trans_prob(s_t_1, s_t);
+	       likelihood = model -> compute_emission_likelihood(s_t, data.get_frame_i_data(i));
+	       posteriors.push_back(likelihood + prior);
+	     }
+	     new_hidden_states[i] = sample_index_from_log_distribution(posteriors) + s_t_1;
+	   }
+	 }
+       }
+       ++trial_num;
+       // resample = hidden_state_valid_check(new_hidden_states, frame_num);
+       resample = false;
       }
    }
    // sample hidden states from prior
@@ -770,7 +731,7 @@ void Sampler::sample_hidden_states(Segment& data, Cluster* model) {
       }*/
    }
    if (frame_num > 1) {
-      new_hidden_states[frame_num - 1] = state_num - 1;
+     new_hidden_states[frame_num - 1] = state_num - 1; // THIS IS A TERRIBLE SOLUTION! -- JD
    }
    data.set_hidden_states(new_hidden_states);
    delete[] new_hidden_states;
@@ -966,6 +927,15 @@ double Sampler::get_dp_prior(Cluster* model) const {
       }
       return log((member_num / (data_num - 1 + dp_alpha)));
    }
+}
+
+double Sampler::get_non_dp_prior(Cluster* model) const {
+   int member_num = model->get_member_num();
+   int data_num = Segment::counter;
+   if (member_num == 0) {
+     return -300;
+   }
+   return log((member_num / (data_num)));
 }
 
 void Sampler::init_prior(const int s_dim, \

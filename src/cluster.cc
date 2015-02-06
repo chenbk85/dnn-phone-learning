@@ -173,55 +173,46 @@ double Cluster::compute_likelihood(const Segment& data, const int offset){
       pre_scores[i] = 0.0;
    }
    
-   pre_scores[0] = compute_emission_likelihood(0, \
-                                               data.get_frame_i_data(0),\
-                                               data.get_frame_index(0) - offset);
+   // frame 0, state 0 (fixed)
+   pre_scores[0] = compute_emission_likelihood(0, data.get_frame_i_data(0));
    if (data.get_frame_num() > 1) {
-      for (int cur_state = 0; cur_state < state_num; ++cur_state) {
-         // double a;
-         // a = log(trans[0][cur_state]);
-         double prob_emit = compute_emission_likelihood(cur_state, \
-            data.get_frame_i_data(1), data.get_frame_index(1) - offset);
-         // cur_scores[cur_state] = pre_scores[0] + a + prob_emit; 
-         cur_scores[cur_state] = pre_scores[0] + prob_emit; 
-      }
-      for (int i = 0; i < state_num; ++i) {
-         pre_scores[i] = cur_scores[i];
-      }
+     // frame 1, all states (coming from state 0)
+     for (int cur_state = 0; cur_state < state_num; ++cur_state) {
+       double prob_emit = compute_emission_likelihood(cur_state, data.get_frame_i_data(1));
+       cur_scores[cur_state] = pre_scores[0] + prob_emit; 
+     }
+
+     // pre_scores are now frame 1
+     for (int i = 0; i < state_num; ++i) {
+       pre_scores[i] = cur_scores[i];
+     }
+
       for (int i = 2; i < data.get_frame_num(); ++i) {
-         for (int cur_state = 0; cur_state < state_num; ++cur_state) {
-            cur_scores[cur_state] = 0.0;
-            /*
-            double log_arr[cur_state + 1];
-            for (int pre_state = 0; pre_state <= cur_state; ++pre_state) {
-               // double a;
-               // a = trans[pre_state][cur_state];
-               // log_reg.push_back(pre_scores[pre_state] + log(a));
-               log_arr[pre_state] = pre_scores[pre_state];
-            }
-            */
-            double prob_emit_i = compute_emission_likelihood(cur_state, \
-               data.get_frame_i_data(i), data.get_frame_index(i) - offset);
-            if (cur_state == 0) {
-               cur_scores[cur_state] = pre_scores[0];
-            }
-            else {
-               cur_scores[cur_state] = calculator.sum_logs(\
-                 pre_scores, cur_state + 1);
-            }
-            cur_scores[cur_state] += prob_emit_i;
+	// next frame, all states
+	for (int cur_state = 0; cur_state < state_num; ++cur_state) {
+	  cur_scores[cur_state] = 0.0;
+	  double prob_emit_i = compute_emission_likelihood(cur_state, data.get_frame_i_data(i));
+	  if (cur_state == 0) {
+	    // state 0 has to come from state 0
+	    cur_scores[cur_state] = pre_scores[0];
+	  }
+	  else {
+	    // states 1 could come from 0 or 1, state 2 could come from any state
+	    cur_scores[cur_state] = calculator.sum_logs(pre_scores, cur_state + 1);
+	  }
+	  cur_scores[cur_state] += prob_emit_i;
          }
-         for (int j = 0; j < state_num; ++j ) {
-            pre_scores[j] = cur_scores[j];
-         }
+	// update pre_scores
+	for (int j = 0; j < state_num; ++j ) {
+	  pre_scores[j] = cur_scores[j];
+	}
       }
    }
+   // more than 1 frame has to end in last state
    if (data.get_frame_num() > 1) {
-     //cout << "SN: " << state_num << ", " << pre_scores[state_num-1] << endl;
       return pre_scores[state_num - 1]; // + log(trans[state_num - 1][state_num]); 
    }
-   else {
-     //cout << "nF: " << data.get_frame_num() << ", " << pre_scores[0] << endl;
+   else { // first frame is in first state
      return pre_scores[0]; // + log(trans[0][state_num]);
    }
 }
@@ -233,19 +224,9 @@ void Cluster::precompute(int total, const float** data) {
 }
 
 // Compute P(x|Guassian) 
-double Cluster::compute_emission_likelihood(int state, \
-                                            const float* data, \
-                                            const int index) {
-   if (precompute_status) {
-     //double e = emissions[state].compute_likelihood(index); 
-     //cout << "PC e: " << emissions[state].compute_likelihood(index) << endl;
-     return 0.0;
-   }
-   else {
-     //double e = emissions[state].compute_likelihood(data); 
-     //cout << "e: " << emissions[state].compute_likelihood(data) << endl;
-     return 0.0;
-   }
+double Cluster::compute_emission_likelihood(int state, const float* data) {
+  // for now, assuming data = likelihoods and that P(state) is uniform
+  return data[nClusters*state + cluster_id];
 }
 
 vector<double> Cluster::compute_posterior_weight(int state, \
@@ -258,6 +239,142 @@ vector<double> Cluster::compute_posterior_weight(int state, \
    else {
      return d; //emissions[state].compute_posterior_weight(data);
    }
+}
+
+vector<vector<float> > Cluster::compute_forward_prob(Segment& data) {
+  vector<vector<float> > forward_prob;
+
+   // for the first frame, code directly                                                                                                                                                 
+   // after the first frame, use the general pattern                                                                                                                                     
+   vector<float> state_prob;
+   state_prob.push_back(0.0);
+   for (int s = 1; s < state_num; ++s) {
+         state_prob.push_back(log(0));
+   }
+   forward_prob.push_back(state_prob);
+
+   for (int i = 1; i < data -> get_frame_num(); ++i) {
+     state_prob.clear();
+     for (int s = 0; s < state_num; ++s) {
+       // Compute the forward prob for each state of each cluster                                                                                                                   
+       if (s == 0) {
+	 float trans_prob = get_forward_prob(0, i - 1) + get_trans_prob(0, 0);
+	 float likelihood = compute_state_prob(0, data -> get_frame_i(i));
+         state_prob.push_back(trans_prob + likelihood);
+       }
+       else {
+	 vector<float> income;
+	 for (int pre_state = 0; pre_state <= s; ++pre_state) {
+	   income.push_back(forward_prob(pre_state, i - 1) + get_trans_prob(pre_state, s));
+	 }
+	 float trans_prob = calculator.sum_logs(income);
+	 float likelihood = compute_state_prob(s, data -> get_frame_i(i));
+	 state_prob.push_back(trans_prob + likelihood);
+       }
+     }
+     forward_prob.push_back(state_prob);
+   }
+   return forward_prob;
+}
+
+vector<vector<float> > Cluster::compute_backward_prob(Segment& data) {
+  vector<vector<float> > backward_prob;
+
+   int last_frame_index = data -> get_frame_num() - 1;
+   vector<float> state_prob;
+   if(last_frame_index == 0){ // only one frame
+     vector<float> state_prob;
+     state_prob.push_back(0.0);
+     for (int s = 1; s < state_num; ++s) {
+       state_prob.push_back(log(0));
+     }
+     backward_prob.push_back(state_prob);
+   }
+   else{
+     for (int s = 0; s < state_num-1; ++s) {
+       state_prob.push_back(log(0));
+     }
+     state_prob.push_back(0); // needs to end at last state
+
+     int i = data -> get_frame_num() - 2;
+     for (; i >= 0; --i) {
+       state_prob.clear();
+       for (int s = 0; s < state_num; ++s) {
+	 vector<float> outcome;
+	 for (int next_state = s; next_state < state_num; ++next_state) {
+	   outcome.push_back(backward_prob(next_state, 0) + 
+			     compute_state_prob(next_state, data -> get_frame_i(i + 1)) + 
+			     get_trans_prob(s, next_state));
+	 }
+	 float intra_prob = calculator.sum_logs(outcome);
+	 state_prob.push_back(intra_prob);
+       }
+       backward_prob.insert(0, 1, state_prob);
+     }
+   }
+   return backward_prob;
+}
+
+vector<vector<float> > Cluster::compute_posterior(vector<vector<float> > forward_prob, vector<vector<float> > backward_prob) {
+  for (int i = 0; i < data -> get_frame_num(); ++i) {
+    vector<float> frame_prob;
+    frame_prob.clear();
+    
+    for (int s = 0; s < state_num; ++s) {
+      float frame_forward = forward_prob(s, i);
+      float frame_backward = backward_prob(s, i);
+      frame_prob.push_back(frame_forward + frame_backward);
+    }
+
+    float normalizer = calculator.sum_logs(frame_prob);
+    for (unsigned int l = 0; l < frame_prob.size(); ++l) {
+      frame_prob[l][c] -= normalizer;
+    }
+    posteriors.push_back(frame_prob);
+  }
+}
+
+void Sampler::run_vitterbi(Segment& data){
+  vector<vector<float> > forward_prob = ccompute_forward_prob();
+  vector<vector<float> > backward_prob = compute_backward_prob();
+  vector<vector<float> > posterior = compute_posterior();
+
+  vector<vector<float> >  V ( data -> get_frame_num(), vector<float> (state_num, 0.0));
+  vector<vector<int> >  pathPointers ( data -> get_frame_num(), vector<int> (state_num, 0));
+
+  // initialize
+  V[0][0] = 0;
+  for(int s = 1; s < state_num; s++){
+    V[0][s] = log(0);
+  }
+  pathPointers[0][0] = -1; // ????                                                                                                                                                  
+
+  for (int i = 1; i < data -> get_frame_num(); ++i) {
+    // State 0 has to come from state 0
+    V[i][0] = V[i-1][0] + posteriors[i][0];
+    pathPointers[i][0] = 0;
+
+    // other states can come from multiple places                                                                                                                                              
+    for (unsigned int s = 1; s < get_state_num; ++s) {
+      if(V[i-1][s] > V[i-1][s-1]){ // same state
+	V[i][s] = V[i-1][s] + posteriors[i][s];
+	pathPointers[i][s] = s;
+      } else{ // previous state
+	V[i][s] = V[i-1][s-1] + posteriors[i][s];
+	pathPointers[i][s] = s-1;
+      }
+    }
+  }
+  int frame =  data -> get_frame_num() - 1;
+  int* new_hidden_states = new int[frame + 1];
+  int state = state_num - 1;
+  while(frame > 0){
+    state = pathPointers[frame][state];
+    frame--;
+    new_hidden_states[frame] = state;
+  }
+  data.set_hidden_states(new_hidden_states);
+
 }
 
 void Cluster::set_trans(const float* s_trans) {
